@@ -1,98 +1,220 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from "@expo/vector-icons";
+import {
+  Alert,
+  FlatList,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+// 2. Menerapkan Type & Array of Objects
+interface MenuItem {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+  isSpicy: boolean;
+  imageUri: string;
+}
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
+const menuData: MenuItem[] = [
+  {
+    id: "1",
+    name: "Nasi Goreng Spesial",
+    price: 25000,
+    description: "Nasi goreng dengan telur, sosis, dan ayam.",
+    isSpicy: true,
+    imageUri: "https://picsum.photos/200",
+  },
+  {
+    id: "2",
+    name: "Ayam Bakar Madu",
+    price: 30000,
+    description: "Ayam bakar manis dengan sambal terpisah.",
+    isSpicy: false,
+    imageUri: "https://picsum.photos/201",
+  },
+  {
+    id: "3",
+    name: "Mie Kuah Pedas Mampus",
+    price: 20000,
+    description: "Mie kuah dengan tingkat kepedasan level 5.",
+    isSpicy: true,
+    imageUri: "https://picsum.photos/202",
+  },
+  {
+    id: "4",
+    name: "Es Teh Manis",
+    price: 5000,
+    description: "Teh manis dingin menyegarkan.",
+    isSpicy: false,
+    imageUri: "https://picsum.photos/203",
+  },
+];
+
+export default function Index() {
+  // 1. Menerapkan Deklarasi Custom Function
+  const handleOrder = (itemName: string) => {
+    Alert.alert(
+      "Pesanan Masuk",
+      `Kamu telah menambahkan ${itemName} ke pesanan!`,
     );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+  };
+
+  const formatRupiah = (price: number) => {
+    return `Rp ${price.toLocaleString("id-ID")}`;
+  };
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <View style={styles.container}>
+      <Text style={styles.headerTitle}>Kafe Koding</Text>
+      <Text style={styles.headerSubtitle}>Menu Spesial Hari Ini</Text>
+
+      {/* 1. Menerapkan Loop (Menggunakan FlatList) */}
+      <FlatList
+        data={menuData}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          // 3. Menerapkan External Styles (styles.card)
+          <View style={styles.card}>
+            <Image source={{ uri: item.imageUri }} style={styles.image} />
+            <View style={styles.infoContainer}>
+              <Text style={styles.name}>{item.name}</Text>
+              <Text style={styles.description}>{item.description}</Text>
+
+              <View style={styles.priceRow}>
+                {/* 3. Menerapkan Inline Styles (Memberi warna merah jika pedas, hijau jika tidak) */}
+                <Text
+                  style={[
+                    styles.price,
+                    { color: item.isSpicy ? "#e74c3c" : "#2ecc71" },
+                  ]}
+                >
+                  {formatRupiah(item.price)}
+                </Text>
+
+                {/* Inline style lagi untuk bagian label pedas */}
+                {item.isSpicy && (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginLeft: 8,
+                    }}
+                  >
+                    <Ionicons name="flame" size={16} color="red" />
+                    <Text style={{ color: "red", fontSize: 12 }}>Pedas</Text>
+                  </View>
+                )}
+              </View>
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                }}
+              >
+                <TextInput
+                  placeholder="Masukkan catatan (opsional)"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: "#ccc",
+                    borderRadius: 4,
+                    padding: 4,
+                    marginBottom: 8,
+                  }}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => {
+                  console.log("Button pressed");
+                  alert(`Kamu telah menambahkan ${item.name} ke pesanan!`);
+                }}
+              >
+                <Text style={styles.buttonText}>Pesan Sekarang</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      />
+    </View>
   );
 }
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
-  );
-}
-
+// 3. Menerapkan External Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    backgroundColor: "#f5f6fa",
+    paddingTop: 40,
+    paddingHorizontal: 16,
   },
-  safeArea: {
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#2f3640",
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: "#7f8fa6",
+    marginBottom: 20,
+  },
+  card: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    flexDirection: "row",
+    elevation: 3, // Shadow for Android
+    shadowColor: "#000", // Shadow for iOS
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  image: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  infoContainer: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+  name: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#2f3640",
+    marginBottom: 4,
   },
-  title: {
-    textAlign: 'center',
+  description: {
+    fontSize: 14,
+    color: "#7f8fa6",
+    marginBottom: 8,
   },
-  code: {
-    textTransform: 'uppercase',
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  price: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  button: {
+    backgroundColor: "#00a8ff",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "#ffffff",
+    fontWeight: "bold",
+    fontSize: 14,
   },
 });
