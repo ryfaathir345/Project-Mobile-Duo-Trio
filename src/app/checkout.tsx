@@ -12,6 +12,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useAuth } from "@/context/AuthContext";
+import { createMission, saveOrderToCloud } from "@/services/missionService";
 
 interface CheckoutItem {
   id: string;
@@ -25,6 +27,7 @@ interface CheckoutItem {
 
 export default function CheckoutScreen() {
   const router = useRouter();
+  const { user } = useAuth();
 
   // =========================================================================
   // 1. KRITERIA PENILAIAN MODUL 2: USELOCALPARAMS()
@@ -84,6 +87,15 @@ export default function CheckoutScreen() {
       setIsProcessing(false);
 
       const orderId = `KAFE-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      // Menyimpan pesanan ke Cloud Database Supabase (Codelab 5 Cloud CRUD)
+      const summaryText = items.map((i) => `${i.qty}x ${i.name}`).join(", ");
+      void saveOrderToCloud(summaryText, total, user?.id);
+      void createMission(
+        `Pesanan ${orderId} (Meja ${tableNumber}): ${summaryText}`,
+        Math.round(total / 1000),
+        user?.id
+      ).catch(() => {});
 
       // Navigasi dengan REPLACE sehingga layar checkout dihapus dari riwayat navigasi
       router.replace({

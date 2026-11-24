@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+﻿import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -12,6 +12,7 @@ import {
 } from "react-native";
 
 import { initialMenuData } from "@/data/menuData";
+import type { MenuItem } from "@/data/menuData";
 
 export default function DetailScreen() {
   // Inisialisasi Expo Router
@@ -21,10 +22,18 @@ export default function DetailScreen() {
   // 1. KRITERIA PENILAIAN MODUL 2: USELOCALPARAMS()
   // Mengambil parameter 'id' dari URL route yang sedang aktif (Modul 2 hal. 21-22)
   // =========================================================================
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, itemJson } = useLocalSearchParams<{ id: string; itemJson?: string }>();
 
-  // Mencari data menu yang sesuai dengan ID
-  const item = initialMenuData.find((m) => m.id === id) || initialMenuData[0];
+  // Data dari API dikirim dari halaman katalog melalui parameter route.
+  // Jika halaman dibuka tanpa itemJson, gunakan data lokal sebagai fallback.
+  let apiItem: MenuItem | undefined;
+  try {
+    const serializedItem = Array.isArray(itemJson) ? itemJson[0] : itemJson;
+    apiItem = serializedItem ? (JSON.parse(serializedItem) as MenuItem) : undefined;
+  } catch {
+    apiItem = undefined;
+  }
+  const item = apiItem ?? initialMenuData.find((m) => m.id === id) ?? initialMenuData[0];
 
   // =========================================================================
   // 2. KRITERIA PENILAIAN MODUL 2: HOOK USESTATE
@@ -110,14 +119,17 @@ export default function DetailScreen() {
               <Text style={styles.categoryBadge}>{item.category}</Text>
               <Text style={styles.itemName}>{item.name}</Text>
             </View>
-            <Text style={styles.itemPrice}>{formatRupiah(item.price)}</Text>
+            <View>
+              <Text style={styles.itemPrice}>{formatRupiah(item.price)}</Text>
+              <Text style={styles.priceNote}>Harga simulasi</Text>
+            </View>
           </View>
 
           {/* Meta Bar: Rating, Durasi Masak, Kalori */}
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <Ionicons name="star" size={16} color="#f59e0b" />
-              <Text style={styles.metaText}>{item.rating} (Rating)</Text>
+              <Text style={styles.metaText}>{item.rating > 0 ? `${item.rating} (Rating)` : "Data resep"}</Text>
             </View>
             <View style={styles.metaDivider} />
             <View style={styles.metaItem}>
@@ -135,7 +147,26 @@ export default function DetailScreen() {
           <View style={styles.sectionBlock}>
             <Text style={styles.sectionTitle}>Deskripsi Menu</Text>
             <Text style={styles.descriptionText}>{item.description}</Text>
+            {item.area ? <Text style={styles.descriptionText}>Asal masakan: {item.area}</Text> : null}
           </View>
+
+          {item.ingredients && item.ingredients.length > 0 && (
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionTitle}>Bahan-bahan</Text>
+              {item.ingredients.map((ingredient, index) => (
+                <Text key={`${item.id}-ingredient-${index}`} style={styles.descriptionText}>
+                  • {ingredient}
+                </Text>
+              ))}
+            </View>
+          )}
+
+          {item.instructions ? (
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionTitle}>Cara Membuat</Text>
+              <Text style={styles.descriptionText}>{item.instructions}</Text>
+            </View>
+          ) : null}
 
           {/* Pengaturan Level Pedas (Jika item.isSpicy) */}
           {item.isSpicy && (
@@ -289,6 +320,12 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "800",
     color: "#0f172a",
+  },
+  priceNote: {
+    color: "#64748b",
+    fontSize: 10,
+    marginTop: 3,
+    textAlign: "right" as const,
   },
   itemPrice: {
     fontSize: 20,

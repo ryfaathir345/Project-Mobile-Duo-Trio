@@ -1,4 +1,4 @@
-export interface MenuItem {
+﻿export interface MenuItem {
   id: string;
   name: string;
   category: 'Makanan' | 'Minuman' | 'Camilan';
@@ -9,6 +9,10 @@ export interface MenuItem {
   rating: number;
   prepTime: string;
   calories: string;
+  area?: string;
+  ingredients?: string[];
+  instructions?: string;
+  sourceUrl?: string;
 }
 
 export const initialMenuData: MenuItem[] = [

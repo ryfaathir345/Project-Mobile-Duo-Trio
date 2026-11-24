@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -12,7 +12,12 @@ import {
   View,
 } from "react-native";
 
-import { initialMenuData, MenuItem } from "@/data/menuData";
+import { initialMenuData } from "@/data/menuData";
+import type { MenuItem } from "@/data/menuData";
+import { fetchMenuFromApi, searchMenuFromApi } from "@/services/menuService";
+import { delay } from "@/utils/delay";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 // Tipe data untuk item dalam keranjang belanja
 export interface CartItem {
@@ -33,25 +38,78 @@ export default function IndexScreen() {
   const [isSpicyOnly, setIsSpicyOnly] = useState<boolean>(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [apiMessage, setApiMessage] = useState<string>("Menghubungkan ke TheMealDB...");
+  const [isUsingFallback, setIsUsingFallback] = useState<boolean>(false);
   const [totalCartPrice, setTotalCartPrice] = useState<number>(0);
 
   // Inisialisasi Expo Router untuk navigasi halaman
   const router = useRouter();
 
-  // =========================================================================
-  // 2. KRITERIA PENILAIAN MODUL 2: PENERAPAN HOOK USEEFFECT
-  // =========================================================================
+  // Autentikasi Supabase & Profil Sesi (Modul 4)
+  const { user, signOut } = useAuth();
+  const displayName = (user?.user_metadata as any)?.callsign || (user?.user_metadata as any)?.name || user?.email?.split("@")[0] || "Pengguna";
 
-  // [useEffect 1]: Initial Mount (Dependencies kosong [])
-  // Mensimulasikan pengambilan/fetching data dari server seperti dijelaskan pada Modul 2 hal. 10
+  // Verifikasi Codelab 2: Log Supabase URL (Modul 4 Hal. 10)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setMenuList(initialMenuData);
-      setIsLoading(false);
-    }, 600);
-
-    return () => clearTimeout(timer);
+    console.log("Supabase URL:", (supabase as any).supabaseUrl);
   }, []);
+
+
+  // Custom async function + await: tunggu API, lalu perbarui state.
+  const loadMenuFromApi = useCallback(async () => {
+    setIsLoading(true);
+    setApiMessage("Mengambil resep dari TheMealDB...");
+    try {
+      const apiMenu = await fetchMenuFromApi();
+      setMenuList(apiMenu);
+      setIsUsingFallback(false);
+      setApiMessage(`Berhasil memuat ${apiMenu.length} resep dari TheMealDB.`);
+    } catch (error) {
+      // Fallback agar aplikasi tetap dapat digunakan saat internet/API gagal.
+      setMenuList(initialMenuData);
+      setIsUsingFallback(true);
+      setApiMessage(
+        error instanceof Error
+          ? `API gagal: ${error.message}. Menampilkan data lokal.`
+          : "API gagal. Menampilkan data lokal."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Pencarian dikirim ke endpoint TheMealDB search.php?s=...
+  const handleSearch = useCallback(async () => {
+    const query = searchQuery.trim();
+    if (!query) {
+      await loadMenuFromApi();
+      return;
+    }
+
+    setIsLoading(true);
+    setApiMessage(`Mencari resep dengan kata kunci "${query}"...`);
+    try {
+      const searchResults = await searchMenuFromApi(query);
+      setMenuList(searchResults);
+      setIsUsingFallback(false);
+      setApiMessage(
+        searchResults.length > 0
+          ? `Ditemukan ${searchResults.length} resep dari TheMealDB.`
+          : `Tidak ada resep untuk kata kunci "${query}".`
+      );
+    } catch (error) {
+      setApiMessage(
+        error instanceof Error ? `Pencarian gagal: ${error.message}` : "Pencarian gagal."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loadMenuFromApi, searchQuery]);
+
+  // [useEffect 1]: Initial Mount. Memanggil custom async function saat halaman dibuka.
+  useEffect(() => {
+    void loadMenuFromApi();
+  }, [loadMenuFromApi]);
 
   // [useEffect 2]: Reactive Update (Dependencies [cart])
   // Berjalan setiap kali state `cart` berubah untuk mengkalkulasi ulang total harga
@@ -60,7 +118,7 @@ export default function IndexScreen() {
     const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
     setTotalCartPrice(total);
   }, [cart]);
-
+  
   // =========================================================================
   // FUNGSI LOGIKA & HANDLERS
   // =========================================================================
@@ -99,7 +157,7 @@ export default function IndexScreen() {
     // Berpindah ke halaman detail sambil mengirimkan parameter dynamic (Modul hal. 32)
     router.push({
       pathname: "/detail",
-      params: { id: item.id },
+      params: { id: item.id, itemJson: JSON.stringify(item) },
     });
   };
 
@@ -125,7 +183,7 @@ export default function IndexScreen() {
     return matchesSearch && matchesCategory && matchesSpicy;
   });
 
-  const categories = ["Semua", "Makanan", "Minuman", "Camilan"];
+  const categories = ["Semua", ...Array.from(new Set(menuList.map((item) => item.category)))];
 
   // Custom render untuk setiap kartu menu (Modul 1: Custom Function + FlatList)
   const renderMenuItem = ({ item }: { item: MenuItem }) => {
@@ -146,8 +204,8 @@ export default function IndexScreen() {
               {item.name}
             </Text>
             <View style={styles.ratingBadge}>
-              <Ionicons name="star" size={12} color="#f59e0b" />
-              <Text style={styles.ratingText}>{item.rating}</Text>
+              <Ionicons name={item.rating > 0 ? "star" : "book-outline"} size={12} color={item.rating > 0 ? "#f59e0b" : "#64748b"} />
+              <Text style={styles.ratingText}>{item.rating > 0 ? item.rating.toFixed(1) : "Resep"}</Text>
             </View>
           </View>
 
@@ -180,7 +238,10 @@ export default function IndexScreen() {
 
           {/* Bagian Bawah: Harga & Tombol Tambah */}
           <View style={styles.bottomRow}>
-            <Text style={styles.price}>{formatRupiah(item.price)}</Text>
+            <View>
+              <Text style={styles.price}>{formatRupiah(item.price)}</Text>
+              <Text style={styles.priceNote}>Harga simulasi</Text>
+            </View>
 
             <TouchableOpacity
               style={[
@@ -206,21 +267,82 @@ export default function IndexScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Header Bar Sesi Pengguna Aktif */}
+      <View style={styles.authStatusBar}>
+        <View style={styles.authInfoCol}>
+          <View style={styles.agentBadge}>
+            <View style={styles.agentActiveDot} />
+            <Text style={styles.agentBadgeText}>SESI AKTIF</Text>
+          </View>
+          <Text style={styles.agentName} numberOfLines={1}>
+            {displayName} <Text style={styles.agentEmail}>({user?.email})</Text>
+          </Text>
+        </View>
+
+        <View style={styles.authActionsRow}>
+          <TouchableOpacity
+            style={styles.missionsNavBtn}
+            onPress={() => router.push("/missions" as any)}
+          >
+            <Ionicons name="clipboard-outline" size={13} color="#38bdf8" />
+            <Text style={styles.missionsNavBtnText}>Tugas Cloud</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.vaultNavBtn}
+            onPress={() => router.push("/vault" as any)}
+          >
+            <Ionicons name="key" size={13} color="#f59e0b" />
+            <Text style={styles.vaultNavBtnText}>Brankas</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.signOutHeaderBtn}
+            onPress={async () => {
+              await signOut();
+            }}
+          >
+            <Ionicons name="log-out-outline" size={15} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Search Input Bar */}
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color="#94a3b8" style={styles.searchIcon} />
         <TextInput
-          placeholder="Cari makanan, kopi, atau camilan..."
+          placeholder="Cari nama makanan atau resep..."
           placeholderTextColor="#94a3b8"
           value={searchQuery}
           onChangeText={setSearchQuery}
+          onSubmitEditing={handleSearch}
+          returnKeyType="search"
           style={styles.searchInput}
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery("")}>
+          <TouchableOpacity onPress={() => { setSearchQuery(""); void loadMenuFromApi(); }}>
             <Ionicons name="close-circle" size={18} color="#94a3b8" />
           </TouchableOpacity>
         )}
+      </View>
+
+      {/* Status External API + tombol untuk mengulang request secara manual */}
+      <View style={styles.apiStatusRow}>
+        <View style={styles.apiStatusTextContainer}>
+          <Text style={styles.apiStatusTitle}>
+            {isUsingFallback ? "Mode data lokal" : "Sumber: TheMealDB API"}
+          </Text>
+          <Text style={styles.apiStatusMessage}>{apiMessage}</Text>
+          <Text style={styles.apiStatusMessage}>Harga pada demo bersifat simulasi, bukan dari API.</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.refreshButton}
+          onPress={loadMenuFromApi}
+          disabled={isLoading}
+        >
+          <Ionicons name="refresh" size={15} color="#ffffff" />
+          <Text style={styles.refreshButtonText}>Muat ulang</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Filter Kategori Chips */}
@@ -320,15 +442,43 @@ export default function IndexScreen() {
         </View>
       )}
 
-      {/* Tombol Mini Akses Codelab 1 (Mempermudah saat Aslab meminta bukti Codelab) */}
+      {/* Navigasi Fitur Tambahan & Demo */}
       <View style={styles.codelabLinkContainer}>
-        <TouchableOpacity
-          style={styles.codelabButton}
-          onPress={() => router.push("/codelab1")}
-        >
-          <Ionicons name="code-slash" size={14} color="#64748b" />
-          <Text style={styles.codelabText}>Buka Demo Codelab 1 (useContext)</Text>
-        </TouchableOpacity>
+        <View style={styles.codelabButtonsRow}>
+          <TouchableOpacity
+            style={styles.codelabButton}
+            onPress={() => router.push("/missions" as any)}
+          >
+            <Ionicons name="cloud-done-outline" size={13} color="#0284c7" />
+            <Text style={styles.codelabText}>Tugas & Pesanan Cloud</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.codelabButton}
+            onPress={() => router.push("/vault" as any)}
+          >
+            <Ionicons name="lock-closed" size={13} color="#0284c7" />
+            <Text style={styles.codelabText}>Brankas Token (SecureStore)</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.codelabButtonsRow}>
+          <TouchableOpacity
+            style={styles.codelabButton}
+            onPress={() => router.push("/filter")}
+          >
+            <Ionicons name="color-palette-outline" size={13} color="#64748b" />
+            <Text style={styles.codelabSubtext}>Filter Hitam Putih</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.codelabButton}
+            onPress={() => router.push("/codelab1")}
+          >
+            <Ionicons name="contrast-outline" size={13} color="#64748b" />
+            <Text style={styles.codelabSubtext}>Demo Tema Dark Mode</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -338,9 +488,149 @@ export default function IndexScreen() {
 // EXTERNAL STYLES (StyleSheet.create)
 // =========================================================================
 const styles = StyleSheet.create({
+  authStatusBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#0f172a",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderColor: "#1e293b",
+  },
+  authInfoCol: {
+    flex: 1,
+    marginRight: 8,
+  },
+  agentBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 2,
+  },
+  agentActiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#10b981",
+  },
+  agentBadgeText: {
+    color: "#94a3b8",
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+  },
+  agentName: {
+    color: "#f8fafc",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  agentEmail: {
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: "400",
+  },
+  authActionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  missionsNavBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1e293b",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  missionsNavBtnText: {
+    color: "#38bdf8",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  vaultNavBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1e293b",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  vaultNavBtnText: {
+    color: "#f59e0b",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  signOutHeaderBtn: {
+    backgroundColor: "#1e293b",
+    padding: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#374151",
+  },
+  codelabButtonsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginVertical: 2,
+  },
+  codelabSubtext: {
+    fontSize: 11,
+    color: "#64748b",
+  },
   container: {
     flex: 1,
     backgroundColor: "#f8fafc",
+  },
+  apiStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 10,
+    backgroundColor: "#eff6ff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#dbeafe",
+    gap: 8,
+  },
+  apiStatusTextContainer: {
+    flex: 1,
+  },
+  apiStatusTitle: {
+    color: "#1e40af",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  priceNote: {
+    color: "#64748b",
+    fontSize: 10,
+    marginTop: 2,
+  },
+  apiStatusMessage: {
+    color: "#475569",
+    fontSize: 10,
+    marginTop: 2,
+  },
+  refreshButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#0284c7",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  refreshButtonText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "700",
   },
   searchContainer: {
     flexDirection: "row",

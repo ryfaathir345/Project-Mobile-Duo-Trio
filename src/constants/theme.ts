@@ -1,9 +1,10 @@
-/**
+﻿/**
  * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
  * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
  */
 
-import '@/global.css';
+// Hindari mengimpor CSS global ke bundle native (Expo Go/React Native).
+// File global.css hanya relevan untuk web dan tidak dibutuhkan oleh aplikasi mobile.
 
 import { Platform } from 'react-native';
 
