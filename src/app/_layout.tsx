@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import { CoffeeTheme } from '../constants/theme';
 
 // ============================================================================
 // CODELAB 4: Penjaga Gerbang (AuthContext & Route Guard Navigation)
@@ -36,8 +37,8 @@ function RootLayoutNav() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#38bdf8" />
-        <Text style={styles.loadingText}>Memeriksa Sesi Pengguna...</Text>
+        <ActivityIndicator size="large" color={CoffeeTheme.colors.brand} />
+        <Text style={styles.loadingText}>Memeriksa Sesi Kafe Koding...</Text>
         <Text style={styles.loadingSubtext}>Penyimpanan Terenkripsi Hardware (SecureStore)</Text>
       </View>
     );
@@ -51,18 +52,18 @@ function RootLayoutNav() {
           headerStyle: {
             backgroundColor: '#ffffff',
           },
-          headerTintColor: '#1e293b',
+          headerTintColor: CoffeeTheme.colors.textPrimary,
           headerTitleStyle: {
-            fontWeight: 'bold',
-            fontSize: 18,
+            fontWeight: '700',
+            fontSize: 17,
           },
           headerShadowVisible: false,
           contentStyle: {
-            backgroundColor: '#f8fafc',
+            backgroundColor: CoffeeTheme.colors.canvas,
           },
         }}
       >
-        {/* Screen Autentikasi (Codelab 3) */}
+        {/* Screen Autentikasi */}
         <Stack.Screen
           name="(auth)/login"
           options={{
@@ -76,11 +77,11 @@ function RootLayoutNav() {
           }}
         />
 
-        {/* Screen 1: Halaman Utama (Katalog Menu Kafe Koding & Command HQ) */}
+        {/* Screen 1: Halaman Utama (Katalog Menu Kafe Koding) */}
         <Stack.Screen
           name="index"
           options={{
-            title: 'Kafe Koding ☕',
+            title: 'Kafe Koding',
             headerTitleAlign: 'center',
           }}
         />
@@ -89,10 +90,10 @@ function RootLayoutNav() {
         <Stack.Screen
           name="missions"
           options={{
-            title: 'Tugas & Pesanan Cloud 📋',
+            title: 'Pesanan & Tugas Cloud',
             headerTitleAlign: 'center',
-            headerStyle: { backgroundColor: '#0f172a' },
-            headerTintColor: '#f8fafc',
+            headerStyle: { backgroundColor: '#ffffff' },
+            headerTintColor: CoffeeTheme.colors.textPrimary,
           }}
         />
 
@@ -100,10 +101,10 @@ function RootLayoutNav() {
         <Stack.Screen
           name="vault"
           options={{
-            title: 'Brankas Token Terenkripsi 🔐',
+            title: 'Brankas Kredensial',
             headerTitleAlign: 'center',
-            headerStyle: { backgroundColor: '#0f172a' },
-            headerTintColor: '#f8fafc',
+            headerStyle: { backgroundColor: '#ffffff' },
+            headerTintColor: CoffeeTheme.colors.textPrimary,
           }}
         />
 
@@ -134,6 +135,15 @@ function RootLayoutNav() {
             title: 'Pesanan Diterima',
             headerTitleAlign: 'center',
             headerBackVisible: false,
+          }}
+        />
+
+        {/* Screen Demo Feedback */}
+        <Stack.Screen
+          name="feedback-list"
+          options={{
+            title: 'Ulasan & Feedback',
+            headerTitleAlign: 'center',
           }}
         />
 
@@ -172,17 +182,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0a0f1d',
+    backgroundColor: CoffeeTheme.colors.canvas,
   },
   loadingText: {
-    color: '#f8fafc',
+    color: CoffeeTheme.colors.textPrimary,
     fontSize: 15,
     fontWeight: '700',
     marginTop: 16,
   },
   loadingSubtext: {
-    color: '#64748b',
-    fontSize: 11,
-    marginTop: 4,
+    color: CoffeeTheme.colors.textSecondary,
+    fontSize: 12,
+    marginTop: 6,
   },
 });

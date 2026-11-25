@@ -1,27 +1,86 @@
-﻿/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+﻿import { Platform } from 'react-native';
+
+/**
+ * Kafe Koding Design System Tokens
+ * Palette bernuansa natural coffeehouse (espresso, mocha, warm linen, amber)
+ * Mengikuti Anti-AI-Slop Standard & Responsive Web/Mobile guidelines.
  */
 
-// Hindari mengimpor CSS global ke bundle native (Expo Go/React Native).
-// File global.css hanya relevan untuk web dan tidak dibutuhkan oleh aplikasi mobile.
+export const CoffeeTheme = {
+  colors: {
+    // Canvas & Surfaces
+    canvas: '#fbfaf8',
+    surface: '#ffffff',
+    surfaceSubtle: '#f5f2eb',
+    surfaceMuted: '#ece7de',
+    
+    // Structural Borders (1px clean dividing lines)
+    border: '#e7e2d8',
+    borderSubtle: '#f0ece4',
+    borderProminent: '#d5cec2',
 
-import { Platform } from 'react-native';
+    // Typographic Colors
+    textPrimary: '#26201b',    // Deep espresso
+    textSecondary: '#6e665e',  // Warm roasted stone
+    textMuted: '#968d83',      // Subtle caption / helper
+    textInverse: '#ffffff',
+
+    // Brand Accents
+    brand: '#543310',          // Rich dark roast
+    brandHover: '#40260c',
+    brandSecondary: '#784315',  // Medium roast
+    brandSubtle: '#fdf6ee',    // Tint background
+    
+    // Semantic / Natural Status
+    accentAmber: '#b45309',    // Natural caramel / star rating
+    accentAmberBg: '#fef3c7',
+    spicyRed: '#b91c1c',       // Muted warm chili
+    spicyRedBg: '#fef2f2',
+    spicyRedBorder: '#fecaca',
+    successGreen: '#15803d',
+    successGreenBg: '#f0fdf4',
+    successGreenBorder: '#bbf7d0',
+  },
+  
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 20,
+    xxl: 24,
+    xxxl: 32,
+  },
+
+  radii: {
+    sm: 4,
+    md: 8,
+    lg: 12,
+    xl: 16,
+    full: 9999,
+  },
+
+  layout: {
+    maxContentWidth: 1120,
+    maxFormWidth: 440,
+    maxDetailWidth: 840,
+  },
+} as const;
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: CoffeeTheme.colors.textPrimary,
+    background: CoffeeTheme.colors.canvas,
+    backgroundElement: CoffeeTheme.colors.surfaceSubtle,
+    backgroundSelected: CoffeeTheme.colors.surfaceMuted,
+    textSecondary: CoffeeTheme.colors.textSecondary,
   },
   dark: {
     text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    background: '#1c1917',
+    backgroundElement: '#292524',
+    backgroundSelected: '#3c3633',
+    textSecondary: '#a8a29e',
   },
 } as const;
 
@@ -29,13 +88,9 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {
@@ -45,10 +100,10 @@ export const Fonts = Platform.select({
     mono: 'monospace',
   },
   web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
+    sans: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    serif: 'Georgia, "Times New Roman", serif',
+    rounded: 'system-ui, sans-serif',
+    mono: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
   },
 });
 
@@ -63,4 +118,4 @@ export const Spacing = {
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
+export const MaxContentWidth = 1120;

@@ -1,6 +1,5 @@
 ﻿import type { TheMealDBMeal, TheMealDBResponse } from "@/types/api";
 import type { MenuItem } from "@/data/menuData";
-import { delay } from "@/utils/delay";
 
 const API_BASE_URL = "https://www.themealdb.com/api/json/v1/1";
 const INITIAL_LETTERS = ["a", "b", "c"];

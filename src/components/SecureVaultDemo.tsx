@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
+import { CoffeeTheme } from '@/constants/theme';
 
 // ============================================================================
 // Brankas Terenkripsi (Penyimpanan Token Persisten via Expo SecureStore)
@@ -30,8 +31,15 @@ export default function SecureVaultDemo() {
       return;
     }
     try {
-      await SecureStore.setItemAsync(TOKEN_KEY, inputToken.trim());
-      setStatusMessage('Token berhasil disimpan ke SecureStore terenkripsi hardware.');
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(TOKEN_KEY, inputToken.trim());
+        }
+        setStatusMessage('Token tersimpan di Web Storage.');
+      } else {
+        await SecureStore.setItemAsync(TOKEN_KEY, inputToken.trim());
+        setStatusMessage('Token berhasil disimpan ke SecureStore terenkripsi hardware.');
+      }
       setInputToken('');
     } catch (error: any) {
       setStatusMessage(`Gagal menyimpan: ${error.message}`);
@@ -41,13 +49,29 @@ export default function SecureVaultDemo() {
   // 2. Ambil token dari hardware SecureStore
   const handleLoadToken = async () => {
     try {
-      const stored = await SecureStore.getItemAsync(TOKEN_KEY);
+      let stored: string | null = null;
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          stored = window.localStorage.getItem(TOKEN_KEY);
+        }
+      } else {
+        stored = await SecureStore.getItemAsync(TOKEN_KEY);
+      }
+
       if (stored) {
         setVaultValue(stored);
-        setStatusMessage('Token berhasil dimuat dari hardware SecureStore.');
+        setStatusMessage(
+          Platform.OS === 'web'
+            ? 'Token berhasil dimuat dari Web Storage.'
+            : 'Token berhasil dimuat dari hardware SecureStore.'
+        );
       } else {
         setVaultValue(null);
-        setStatusMessage('Tidak ada token yang tersimpan.');
+        setStatusMessage(
+          Platform.OS === 'web'
+            ? 'Tidak ada token di storage.'
+            : 'Tidak ada token yang tersimpan di brankas.'
+        );
       }
     } catch (error: any) {
       setStatusMessage(`Gagal membaca: ${error.message}`);
@@ -57,9 +81,19 @@ export default function SecureVaultDemo() {
   // 3. Hapus token dari hardware SecureStore
   const handleWipeToken = async () => {
     try {
-      await SecureStore.deleteItemAsync(TOKEN_KEY);
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(TOKEN_KEY);
+        }
+      } else {
+        await SecureStore.deleteItemAsync(TOKEN_KEY);
+      }
       setVaultValue(null);
-      setStatusMessage('Token berhasil dihapus dari SecureStore.');
+      setStatusMessage(
+        Platform.OS === 'web'
+          ? 'Token berhasil dihapus dari storage.'
+          : 'Token berhasil dihapus dari SecureStore.'
+      );
     } catch (error: any) {
       setStatusMessage(`Gagal menghapus: ${error.message}`);
     }
@@ -68,7 +102,11 @@ export default function SecureVaultDemo() {
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <Ionicons name="shield-checkmark" size={24} color="#38bdf8" />
+        <Ionicons
+          name="shield-checkmark-outline"
+          size={20}
+          color={CoffeeTheme.colors.brandSecondary}
+        />
         <Text style={styles.title}>Brankas Token Terenkripsi</Text>
       </View>
       <Text style={styles.subtitle}>
@@ -83,8 +121,8 @@ export default function SecureVaultDemo() {
 
       <TextInput
         style={styles.input}
-        placeholder="Masukkan token rahasia / API token..."
-        placeholderTextColor="#64748b"
+        placeholder="Masukkan token rahasia / sesi..."
+        placeholderTextColor={CoffeeTheme.colors.textMuted}
         value={inputToken}
         onChangeText={setInputToken}
         autoCapitalize="none"
@@ -93,17 +131,25 @@ export default function SecureVaultDemo() {
 
       <View style={styles.buttonGroup}>
         <TouchableOpacity style={styles.btnPrimary} onPress={handleSaveToken}>
-          <Ionicons name="save-outline" size={16} color="#0f172a" />
+          <Ionicons name="save-outline" size={15} color="#ffffff" />
           <Text style={styles.btnPrimaryText}>Simpan Token</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.btnSecondary} onPress={handleLoadToken}>
-          <Ionicons name="download-outline" size={16} color="#f8fafc" />
+          <Ionicons
+            name="download-outline"
+            size={15}
+            color={CoffeeTheme.colors.textPrimary}
+          />
           <Text style={styles.btnSecondaryText}>Muat Token</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.btnDanger} onPress={handleWipeToken}>
-          <Ionicons name="trash-outline" size={16} color="#ef4444" />
+          <Ionicons
+            name="trash-outline"
+            size={15}
+            color={CoffeeTheme.colors.spicyRed}
+          />
           <Text style={styles.btnDangerText}>Hapus Token</Text>
         </TouchableOpacity>
       </View>
@@ -122,12 +168,12 @@ export default function SecureVaultDemo() {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
-    padding: 16,
-    marginVertical: 12,
+    backgroundColor: CoffeeTheme.colors.surface,
+    borderRadius: CoffeeTheme.radii.lg,
+    padding: 18,
+    marginVertical: 8,
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: CoffeeTheme.colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -135,90 +181,95 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#f8fafc',
+    fontSize: 15,
+    fontWeight: '700',
+    color: CoffeeTheme.colors.textPrimary,
   },
   subtitle: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: CoffeeTheme.colors.textSecondary,
     marginTop: 2,
     marginBottom: 8,
   },
   platformBadge: {
-    backgroundColor: '#1e293b',
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: CoffeeTheme.radii.sm,
     alignSelf: 'flex-start',
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: CoffeeTheme.colors.borderSubtle,
   },
   platformText: {
-    color: '#38bdf8',
+    color: CoffeeTheme.colors.brandSecondary,
     fontSize: 11,
     fontWeight: '600',
   },
   input: {
-    backgroundColor: '#1e293b',
-    color: '#f8fafc',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-    fontSize: 14,
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
+    color: CoffeeTheme.colors.textPrimary,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: CoffeeTheme.radii.md,
+    fontSize: 13,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: CoffeeTheme.colors.border,
+    outlineStyle: 'none' as any,
   },
   buttonGroup: {
     gap: 8,
   },
   btnPrimary: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: CoffeeTheme.colors.brand,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: CoffeeTheme.radii.md,
     gap: 6,
   },
   btnPrimaryText: {
-    color: '#0f172a',
+    color: '#ffffff',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 13,
   },
   btnSecondary: {
-    backgroundColor: '#334155',
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: CoffeeTheme.colors.border,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: CoffeeTheme.radii.md,
     gap: 6,
   },
   btnSecondaryText: {
-    color: '#f8fafc',
+    color: CoffeeTheme.colors.textPrimary,
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 13,
   },
   btnDanger: {
-    backgroundColor: '#1e293b',
+    backgroundColor: CoffeeTheme.colors.spicyRedBg,
     borderWidth: 1,
-    borderColor: '#ef4444',
+    borderColor: CoffeeTheme.colors.spicyRedBorder,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: CoffeeTheme.radii.md,
     gap: 6,
   },
   btnDangerText: {
-    color: '#ef4444',
+    color: CoffeeTheme.colors.spicyRed,
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 13,
   },
   statusText: {
-    color: '#94a3b8',
-    fontSize: 12,
+    color: CoffeeTheme.colors.textSecondary,
+    fontSize: 11,
     textAlign: 'center',
     marginTop: 10,
     fontStyle: 'italic',
@@ -226,20 +277,23 @@ const styles = StyleSheet.create({
   vaultResult: {
     marginTop: 12,
     padding: 12,
-    backgroundColor: '#1e293b',
-    borderRadius: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#38bdf8',
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
+    borderRadius: CoffeeTheme.radii.md,
+    borderLeftWidth: 3,
+    borderLeftColor: CoffeeTheme.colors.brandSecondary,
+    borderWidth: 1,
+    borderColor: CoffeeTheme.colors.border,
   },
   vaultLabel: {
-    color: '#38bdf8',
-    fontSize: 11,
+    color: CoffeeTheme.colors.brandSecondary,
+    fontSize: 10,
     fontWeight: '700',
+    letterSpacing: 0.6,
   },
   vaultToken: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: 'bold',
+    color: CoffeeTheme.colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '700',
     marginTop: 4,
   },
 });

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { CoffeeTheme } from "@/constants/theme";
 
 export default function OrderSuccessScreen() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function OrderSuccessScreen() {
   // =========================================================================
   const {
     orderId = "KAFE-8891",
-    customerName = "Tamu",
+    customerName = "Pelanggan",
     tableNumber = "07",
     totalPaid = "0",
     method = "QRIS",
@@ -30,12 +31,10 @@ export default function OrderSuccessScreen() {
 
   // =========================================================================
   // 2. KRITERIA PENILAIAN MODUL 2: HOOK USESTATE & USEEFFECT
-  // Digunakan untuk countdown estimasi penyajian pesanan
   // =========================================================================
   const [estimatedMinutes, setEstimatedMinutes] = useState<number>(12);
 
   useEffect(() => {
-    // Interval countdown simulasi estimasi waktu
     const interval = setInterval(() => {
       setEstimatedMinutes((prev) => (prev > 1 ? prev - 1 : 1));
     }, 60000);
@@ -50,30 +49,32 @@ export default function OrderSuccessScreen() {
 
   // =========================================================================
   // 3. KRITERIA PENILAIAN MODUL 2: ROUTER.REPLACE()
-  // Mengembalikan pengguna ke root ("/") dan membersihkan riwayat stack navigasi
-  // Sesuai materi Modul 2 hal. 33
   // =========================================================================
   const handleBackToHome = () => {
     router.replace("/");
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
+    <View style={styles.screenWrapper}>
+      <View style={styles.contentContainer}>
         {/* Ikon Sukses */}
         <View style={styles.iconCircle}>
-          <Ionicons name="checkmark-sharp" size={48} color="#ffffff" />
+          <Ionicons
+            name="checkmark-outline"
+            size={36}
+            color={CoffeeTheme.colors.successGreen}
+          />
         </View>
 
-        <Text style={styles.title}>Pesanan Berhasil Masuk!</Text>
+        <Text style={styles.title}>Pesanan Telah Diterima</Text>
         <Text style={styles.subtitle}>
-          Barista dan Koki Kafe Koding sedang menyiapkan hidangan lezat untukmu.
+          Barista Kafe Koding sedang meracik pesanan spesial untuk Anda.
         </Text>
 
         {/* Kartu Nota / Struk */}
         <View style={styles.receiptCard}>
           <View style={styles.receiptHeader}>
-            <Text style={styles.receiptBrand}>KAFE KODING MALANG</Text>
+            <Text style={styles.receiptBrand}>STRUK KAFE KODING</Text>
             <Text style={styles.orderIdBadge}>{orderId}</Text>
           </View>
 
@@ -90,13 +91,13 @@ export default function OrderSuccessScreen() {
           </View>
 
           <View style={styles.receiptRow}>
-            <Text style={styles.rowLabel}>Metode Bayar</Text>
+            <Text style={styles.rowLabel}>Metode Pembayaran</Text>
             <Text style={styles.rowValue}>{method}</Text>
           </View>
 
           <View style={styles.receiptRow}>
             <Text style={styles.rowLabel}>Total Terbayar</Text>
-            <Text style={[styles.rowValue, { color: "#0284c7", fontWeight: "800" }]}>
+            <Text style={styles.totalValue}>
               {formatRupiah(totalPaid)}
             </Text>
           </View>
@@ -105,21 +106,25 @@ export default function OrderSuccessScreen() {
 
           {/* Estimasi Waktu */}
           <View style={styles.timeBanner}>
-            <Ionicons name="timer-outline" size={20} color="#0284c7" />
+            <Ionicons
+              name="time-outline"
+              size={16}
+              color={CoffeeTheme.colors.brandSecondary}
+            />
             <Text style={styles.timeText}>
-              Estimasi siap saji: ~{estimatedMinutes} menit
+              Estimasi penyajian: ~{estimatedMinutes} menit
             </Text>
           </View>
         </View>
 
-        {/* Tombol Kembali ke Menu dengan router.replace('/') */}
+        {/* Tombol Kembali ke Menu */}
         <TouchableOpacity
           style={styles.homeButton}
-          activeOpacity={0.85}
+          activeOpacity={0.88}
           onPress={handleBackToHome}
         >
-          <Ionicons name="restaurant-outline" size={18} color="#ffffff" />
-          <Text style={styles.homeButtonText}>Pesan Menu Lain (Kembali)</Text>
+          <Ionicons name="cafe-outline" size={16} color="#ffffff" />
+          <Text style={styles.homeButtonText}>Kembali ke Menu Utama</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -127,78 +132,74 @@ export default function OrderSuccessScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screenWrapper: {
     flex: 1,
-    backgroundColor: "#f8fafc",
+    backgroundColor: CoffeeTheme.colors.canvas,
     justifyContent: "center",
-    padding: 24,
+    alignItems: "center",
+    padding: 20,
   },
-  content: {
+  contentContainer: {
+    width: "100%",
+    maxWidth: 440,
     alignItems: "center",
   },
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#10b981",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: CoffeeTheme.colors.successGreenBg,
+    borderWidth: 1,
+    borderColor: CoffeeTheme.colors.successGreenBorder,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
-    shadowColor: "#10b981",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6,
+    marginBottom: 14,
   },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "800",
-    color: "#0f172a",
-    marginBottom: 6,
+    color: CoffeeTheme.colors.textPrimary,
+    marginBottom: 4,
     textAlign: "center",
   },
   subtitle: {
-    fontSize: 13,
-    color: "#64748b",
+    fontSize: 12,
+    color: CoffeeTheme.colors.textSecondary,
     textAlign: "center",
     lineHeight: 18,
-    marginBottom: 24,
-    paddingHorizontal: 10,
+    marginBottom: 20,
+    paddingHorizontal: 12,
   },
   receiptCard: {
     width: "100%",
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: CoffeeTheme.colors.surface,
+    borderRadius: CoffeeTheme.radii.lg,
+    padding: 18,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-    marginBottom: 24,
+    borderColor: CoffeeTheme.colors.border,
+    marginBottom: 20,
   },
   receiptHeader: {
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   receiptBrand: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "700",
-    color: "#94a3b8",
-    letterSpacing: 1.5,
+    color: CoffeeTheme.colors.textMuted,
+    letterSpacing: 1.2,
   },
   orderIdBadge: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "800",
-    color: "#0f172a",
-    marginTop: 4,
+    color: CoffeeTheme.colors.textPrimary,
+    marginTop: 2,
+    fontVariant: ["tabular-nums"],
   },
   divider: {
     height: 1,
-    backgroundColor: "#f1f5f9",
-    marginVertical: 12,
+    backgroundColor: CoffeeTheme.colors.border,
+    marginVertical: 10,
   },
   receiptRow: {
     flexDirection: "row",
@@ -206,47 +207,49 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   rowLabel: {
-    fontSize: 13,
-    color: "#64748b",
+    fontSize: 12,
+    color: CoffeeTheme.colors.textSecondary,
   },
   rowValue: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
-    color: "#1e293b",
+    color: CoffeeTheme.colors.textPrimary,
+  },
+  totalValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: CoffeeTheme.colors.brand,
+    fontVariant: ["tabular-nums"],
   },
   timeBanner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f0f9ff",
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 8,
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: CoffeeTheme.colors.borderSubtle,
+    paddingVertical: 8,
+    borderRadius: CoffeeTheme.radii.md,
+    gap: 6,
   },
   timeText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
-    color: "#0284c7",
+    color: CoffeeTheme.colors.brandSecondary,
   },
   homeButton: {
     width: "100%",
-    backgroundColor: "#0284c7",
+    backgroundColor: CoffeeTheme.colors.brand,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 8,
-    shadowColor: "#0284c7",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
+    paddingVertical: 12,
+    borderRadius: CoffeeTheme.radii.md,
+    gap: 6,
   },
   homeButtonText: {
     color: "#ffffff",
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "700",
   },
 });
-

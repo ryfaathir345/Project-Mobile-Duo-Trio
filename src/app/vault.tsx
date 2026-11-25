@@ -1,6 +1,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import SecureVaultDemo from '@/components/SecureVaultDemo';
+import { CoffeeTheme } from '@/constants/theme';
 
 // ============================================================================
 // Halaman Brankas Token Terenkripsi (Expo SecureStore)
@@ -8,52 +9,69 @@ import SecureVaultDemo from '@/components/SecureVaultDemo';
 
 export default function VaultScreen() {
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.introBox}>
-        <Text style={styles.introTitle}>Penyimpanan Kredensial Aman Hardware</Text>
-        <Text style={styles.introDesc}>
-          Fitur ini mendemonstrasikan penyimpanan token secara aman menggunakan{' '}
-          <Text style={styles.boldText}>expo-secure-store</Text>. Pada Android, data disimpan di
-          Android Keystore dengan enkripsi AES. Pada iOS, data disimpan di Keychain. Token
-          tetap aman dan persisten bahkan setelah aplikasi ditutup atau dimuat ulang.
-        </Text>
-      </View>
+    <View style={styles.screenWrapper}>
+      <View style={styles.contentContainer}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.introBox}>
+            <Text style={styles.introTitle}>Penyimpanan Kredensial Aman Hardware</Text>
+            <Text style={styles.introDesc}>
+              Fitur ini mendemonstrasikan penyimpanan token secara aman menggunakan{' '}
+              <Text style={styles.boldText}>expo-secure-store</Text>. Pada Android, data disimpan di
+              Android Keystore dengan enkripsi AES. Pada iOS, data disimpan di Keychain. Token
+              tetap aman dan persisten bahkan setelah aplikasi ditutup atau dimuat ulang.
+            </Text>
+          </View>
 
-      <SecureVaultDemo />
-    </ScrollView>
+          <SecureVaultDemo />
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screenWrapper: {
+    flex: 1,
+    backgroundColor: CoffeeTheme.colors.canvas,
+    alignItems: 'center',
+  },
+  contentContainer: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 720,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#0a0f1d',
   },
   content: {
     padding: 16,
     paddingBottom: 40,
   },
   introBox: {
-    backgroundColor: '#111827',
-    borderRadius: 12,
+    backgroundColor: CoffeeTheme.colors.surface,
+    borderRadius: CoffeeTheme.radii.lg,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#1f2937',
-    marginBottom: 8,
+    borderColor: CoffeeTheme.colors.border,
+    marginBottom: 12,
   },
   introTitle: {
-    color: '#f8fafc',
-    fontSize: 16,
-    fontWeight: '800',
+    color: CoffeeTheme.colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
     marginBottom: 6,
   },
   introDesc: {
-    color: '#94a3b8',
-    fontSize: 13,
+    color: CoffeeTheme.colors.textSecondary,
+    fontSize: 12,
     lineHeight: 18,
   },
   boldText: {
-    color: '#38bdf8',
+    color: CoffeeTheme.colors.brandSecondary,
     fontWeight: '700',
   },
 });

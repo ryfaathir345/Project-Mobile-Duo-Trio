@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -9,15 +9,16 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 
-import { initialMenuData } from "@/data/menuData";
-import type { MenuItem } from "@/data/menuData";
-import { fetchMenuFromApi, searchMenuFromApi } from "@/services/menuService";
-import { delay } from "@/utils/delay";
+import { CoffeeTheme } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
+import type { MenuItem } from "@/data/menuData";
+import { initialMenuData } from "@/data/menuData";
 import { supabase } from "@/lib/supabase";
+import { fetchMenuFromApi, searchMenuFromApi } from "@/services/menuService";
 
 // Tipe data untuk item dalam keranjang belanja
 export interface CartItem {
@@ -38,40 +39,51 @@ export default function IndexScreen() {
   const [isSpicyOnly, setIsSpicyOnly] = useState<boolean>(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [apiMessage, setApiMessage] = useState<string>("Menghubungkan ke TheMealDB...");
+  const [apiMessage, setApiMessage] = useState<string>(
+    "Menghubungkan ke TheMealDB...",
+  );
   const [isUsingFallback, setIsUsingFallback] = useState<boolean>(false);
-  const [totalCartPrice, setTotalCartPrice] = useState<number>(0);
+  // Perhitungan total harga keranjang secara reaktif
+  const totalCartPrice = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
   // Inisialisasi Expo Router untuk navigasi halaman
   const router = useRouter();
+  const { width } = useWindowDimensions();
+
+  // Responsive Grid Logic: 1 kolom di mobile, 2 kolom di tablet, 3 kolom di desktop
+  const numColumns = width >= 980 ? 3 : width >= 640 ? 2 : 1;
+  const isMultiColumn = numColumns > 1;
 
   // Autentikasi Supabase & Profil Sesi (Modul 4)
   const { user, signOut } = useAuth();
-  const displayName = (user?.user_metadata as any)?.callsign || (user?.user_metadata as any)?.name || user?.email?.split("@")[0] || "Pengguna";
+  const displayName =
+    (user?.user_metadata as any)?.callsign ||
+    (user?.user_metadata as any)?.name ||
+    user?.email?.split("@")[0] ||
+    "Pelanggan";
 
   // Verifikasi Codelab 2: Log Supabase URL (Modul 4 Hal. 10)
   useEffect(() => {
     console.log("Supabase URL:", (supabase as any).supabaseUrl);
   }, []);
 
-
   // Custom async function + await: tunggu API, lalu perbarui state.
   const loadMenuFromApi = useCallback(async () => {
     setIsLoading(true);
-    setApiMessage("Mengambil resep dari TheMealDB...");
+    setApiMessage("Menyegarkan resep dari TheMealDB...");
     try {
       const apiMenu = await fetchMenuFromApi();
       setMenuList(apiMenu);
       setIsUsingFallback(false);
-      setApiMessage(`Berhasil memuat ${apiMenu.length} resep dari TheMealDB.`);
+      setApiMessage(`Tersedia ${apiMenu.length} sajian kurasi resep.`);
     } catch (error) {
       // Fallback agar aplikasi tetap dapat digunakan saat internet/API gagal.
       setMenuList(initialMenuData);
       setIsUsingFallback(true);
       setApiMessage(
         error instanceof Error
-          ? `API gagal: ${error.message}. Menampilkan data lokal.`
-          : "API gagal. Menampilkan data lokal."
+          ? `Koneksi cloud dialihkan: ${error.message}. Menampilkan menu racikan lokal.`
+          : "Menampilkan menu racikan lokal.",
       );
     } finally {
       setIsLoading(false);
@@ -87,19 +99,21 @@ export default function IndexScreen() {
     }
 
     setIsLoading(true);
-    setApiMessage(`Mencari resep dengan kata kunci "${query}"...`);
+    setApiMessage(`Mencari sajian "${query}"...`);
     try {
       const searchResults = await searchMenuFromApi(query);
       setMenuList(searchResults);
       setIsUsingFallback(false);
       setApiMessage(
         searchResults.length > 0
-          ? `Ditemukan ${searchResults.length} resep dari TheMealDB.`
-          : `Tidak ada resep untuk kata kunci "${query}".`
+          ? `Ditemukan ${searchResults.length} menu yang cocok.`
+          : `Tidak ada menu untuk kata kunci "${query}".`,
       );
     } catch (error) {
       setApiMessage(
-        error instanceof Error ? `Pencarian gagal: ${error.message}` : "Pencarian gagal."
+        error instanceof Error
+          ? `Pencarian gagal: ${error.message}`
+          : "Pencarian gagal.",
       );
     } finally {
       setIsLoading(false);
@@ -111,17 +125,6 @@ export default function IndexScreen() {
     void loadMenuFromApi();
   }, [loadMenuFromApi]);
 
-  // [useEffect 2]: Reactive Update (Dependencies [cart])
-  // Berjalan setiap kali state `cart` berubah untuk mengkalkulasi ulang total harga
-  // Sesuai materi Modul 2 hal. 9: "Jalankan fungsi setiap kali nilai state berubah"
-  useEffect(() => {
-    const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-    setTotalCartPrice(total);
-  }, [cart]);
-  
-  // =========================================================================
-  // FUNGSI LOGIKA & HANDLERS
-  // =========================================================================
 
   // Format angka ke format mata uang Rupiah
   const formatRupiah = (price: number) => {
@@ -134,7 +137,7 @@ export default function IndexScreen() {
       const existing = prevCart.find((c) => c.id === item.id);
       if (existing) {
         return prevCart.map((c) =>
-          c.id === item.id ? { ...c, qty: c.qty + 1 } : c
+          c.id === item.id ? { ...c, qty: c.qty + 1 } : c,
         );
       }
       return [
@@ -154,7 +157,6 @@ export default function IndexScreen() {
   // 3. KRITERIA PENILAIAN MODUL 2: NAVIGASI MENGGUNAKAN ROUTER.PUSH()
   // =========================================================================
   const handleOpenDetail = (item: MenuItem) => {
-    // Berpindah ke halaman detail sambil mengirimkan parameter dynamic (Modul hal. 32)
     router.push({
       pathname: "/detail",
       params: { id: item.id, itemJson: JSON.stringify(item) },
@@ -183,7 +185,10 @@ export default function IndexScreen() {
     return matchesSearch && matchesCategory && matchesSpicy;
   });
 
-  const categories = ["Semua", ...Array.from(new Set(menuList.map((item) => item.category)))];
+  const categories = [
+    "Semua",
+    ...Array.from(new Set(menuList.map((item) => item.category))),
+  ];
 
   // Custom render untuk setiap kartu menu (Modul 1: Custom Function + FlatList)
   const renderMenuItem = ({ item }: { item: MenuItem }) => {
@@ -191,11 +196,17 @@ export default function IndexScreen() {
 
     return (
       <TouchableOpacity
-        style={styles.card}
+        style={[
+          styles.card,
+          isMultiColumn ? styles.gridCard : styles.rowCard,
+        ]}
         activeOpacity={0.88}
         onPress={() => handleOpenDetail(item)}
       >
-        <Image source={{ uri: item.imageUri }} style={styles.image} />
+        <Image
+          source={{ uri: item.imageUri }}
+          style={isMultiColumn ? styles.gridImage : styles.rowImage}
+        />
 
         <View style={styles.infoContainer}>
           {/* Header Card: Nama & Rating */}
@@ -204,8 +215,14 @@ export default function IndexScreen() {
               {item.name}
             </Text>
             <View style={styles.ratingBadge}>
-              <Ionicons name={item.rating > 0 ? "star" : "book-outline"} size={12} color={item.rating > 0 ? "#f59e0b" : "#64748b"} />
-              <Text style={styles.ratingText}>{item.rating > 0 ? item.rating.toFixed(1) : "Resep"}</Text>
+              <Ionicons
+                name="star"
+                size={11}
+                color={CoffeeTheme.colors.accentAmber}
+              />
+              <Text style={styles.ratingText}>
+                {item.rating > 0 ? item.rating.toFixed(1) : "Pilihan"}
+              </Text>
             </View>
           </View>
 
@@ -213,25 +230,36 @@ export default function IndexScreen() {
             {item.description}
           </Text>
 
-          {/* Tag Bar: Waktu penyajian, Kalori, dan Pedas (Kondisional) */}
+          {/* Tag Bar: Waktu penyajian, Kalori, dan Pedas */}
           <View style={styles.tagRow}>
             <View style={styles.tagBadge}>
-              <Ionicons name="time-outline" size={11} color="#64748b" />
+              <Ionicons
+                name="time-outline"
+                size={11}
+                color={CoffeeTheme.colors.textSecondary}
+              />
               <Text style={styles.tagText}>{item.prepTime}</Text>
             </View>
 
-            {/* Menerapkan Inline Style kondisional untuk label Pedas */}
+            {item.calories ? (
+              <View style={styles.tagBadge}>
+                <Ionicons
+                  name="cafe-outline"
+                  size={11}
+                  color={CoffeeTheme.colors.textSecondary}
+                />
+                <Text style={styles.tagText}>{item.calories}</Text>
+              </View>
+            ) : null}
+
             {item.isSpicy && (
-              <View
-                style={[
-                  styles.tagBadge,
-                  { backgroundColor: "#fee2e2", borderColor: "#fecaca" },
-                ]}
-              >
-                <Ionicons name="flame" size={12} color="#dc2626" />
-                <Text style={{ color: "#dc2626", fontSize: 11, fontWeight: "600", marginLeft: 2 }}>
-                  Pedas
-                </Text>
+              <View style={styles.spicyBadge}>
+                <Ionicons
+                  name="flame-outline"
+                  size={11}
+                  color={CoffeeTheme.colors.spicyRed}
+                />
+                <Text style={styles.spicyText}>Pedas</Text>
               </View>
             )}
           </View>
@@ -240,23 +268,23 @@ export default function IndexScreen() {
           <View style={styles.bottomRow}>
             <View>
               <Text style={styles.price}>{formatRupiah(item.price)}</Text>
-              <Text style={styles.priceNote}>Harga simulasi</Text>
+              <Text style={styles.priceNote}>Siap disajikan</Text>
             </View>
 
             <TouchableOpacity
               style={[
                 styles.addButton,
-                itemInCart ? { backgroundColor: "#0284c7" } : {},
+                itemInCart ? styles.addButtonActive : {},
               ]}
               onPress={() => handleQuickAddToCart(item)}
             >
               <Ionicons
-                name={itemInCart ? "checkmark" : "add"}
-                size={18}
+                name={itemInCart ? "checkmark" : "bag-add-outline"}
+                size={15}
                 color="#ffffff"
               />
               <Text style={styles.addButtonText}>
-                {itemInCart ? `(${itemInCart.qty}) Tambah` : "Pesan"}
+                {itemInCart ? `(${itemInCart.qty}) Ditambah` : "Pesan"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -266,218 +294,290 @@ export default function IndexScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header Bar Sesi Pengguna Aktif */}
-      <View style={styles.authStatusBar}>
-        <View style={styles.authInfoCol}>
-          <View style={styles.agentBadge}>
-            <View style={styles.agentActiveDot} />
-            <Text style={styles.agentBadgeText}>SESI AKTIF</Text>
-          </View>
-          <Text style={styles.agentName} numberOfLines={1}>
-            {displayName} <Text style={styles.agentEmail}>({user?.email})</Text>
-          </Text>
-        </View>
-
-        <View style={styles.authActionsRow}>
-          <TouchableOpacity
-            style={styles.missionsNavBtn}
-            onPress={() => router.push("/missions" as any)}
-          >
-            <Ionicons name="clipboard-outline" size={13} color="#38bdf8" />
-            <Text style={styles.missionsNavBtnText}>Tugas Cloud</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.vaultNavBtn}
-            onPress={() => router.push("/vault" as any)}
-          >
-            <Ionicons name="key" size={13} color="#f59e0b" />
-            <Text style={styles.vaultNavBtnText}>Brankas</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.signOutHeaderBtn}
-            onPress={async () => {
-              await signOut();
-            }}
-          >
-            <Ionicons name="log-out-outline" size={15} color="#ef4444" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Search Input Bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#94a3b8" style={styles.searchIcon} />
-        <TextInput
-          placeholder="Cari nama makanan atau resep..."
-          placeholderTextColor="#94a3b8"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-          style={styles.searchInput}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => { setSearchQuery(""); void loadMenuFromApi(); }}>
-            <Ionicons name="close-circle" size={18} color="#94a3b8" />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Status External API + tombol untuk mengulang request secara manual */}
-      <View style={styles.apiStatusRow}>
-        <View style={styles.apiStatusTextContainer}>
-          <Text style={styles.apiStatusTitle}>
-            {isUsingFallback ? "Mode data lokal" : "Sumber: TheMealDB API"}
-          </Text>
-          <Text style={styles.apiStatusMessage}>{apiMessage}</Text>
-          <Text style={styles.apiStatusMessage}>Harga pada demo bersifat simulasi, bukan dari API.</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.refreshButton}
-          onPress={loadMenuFromApi}
-          disabled={isLoading}
-        >
-          <Ionicons name="refresh" size={15} color="#ffffff" />
-          <Text style={styles.refreshButtonText}>Muat ulang</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Filter Kategori Chips */}
-      <View style={styles.filterSection}>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={categories}
-          keyExtractor={(item) => item}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.categoryChip,
-                selectedCategory === item && styles.categoryChipActive,
-              ]}
-              onPress={() => setSelectedCategory(item)}
-            >
-              <Text
-                style={[
-                  styles.categoryText,
-                  selectedCategory === item && styles.categoryTextActive,
-                ]}
-              >
-                {item}
-              </Text>
-            </TouchableOpacity>
-          )}
-          contentContainerStyle={styles.categoryList}
-        />
-
-        {/* Toggle Menu Pedas */}
-        <TouchableOpacity
-          style={[
-            styles.spicyToggle,
-            isSpicyOnly && { backgroundColor: "#fee2e2", borderColor: "#ef4444" },
-          ]}
-          onPress={() => setIsSpicyOnly(!isSpicyOnly)}
-        >
-          <Ionicons
-            name="flame"
-            size={14}
-            color={isSpicyOnly ? "#dc2626" : "#64748b"}
-          />
-          <Text
-            style={[
-              styles.spicyToggleText,
-              isSpicyOnly && { color: "#dc2626", fontWeight: "700" },
-            ]}
-          >
-            Hanya Pedas
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Konten Utama Menu / Loading Indicator */}
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0284c7" />
-          <Text style={styles.loadingText}>Memuat sajian Kafe Koding...</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredMenu}
-          keyExtractor={(item) => item.id}
-          renderItem={renderMenuItem}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="restaurant-outline" size={48} color="#cbd5e1" />
-              <Text style={styles.emptyTitle}>Menu Tidak Ditemukan</Text>
-              <Text style={styles.emptySubtitle}>
-                Coba cari dengan kata kunci lain atau pilih kategori Semua.
-              </Text>
+    <View style={styles.screenWrapper}>
+      <View style={styles.contentContainer}>
+        {/* Header Bar Sesi Pengguna: Alami, Hangat, & Modern */}
+        <View style={styles.authStatusBar}>
+          <View style={styles.authInfoCol}>
+            <View style={styles.memberStatusRow}>
+              <View style={styles.activeDot} />
+              <Text style={styles.memberStatusText}>PELANGGAN KAFE</Text>
             </View>
-          }
-        />
-      )}
-
-      {/* Floating Bar Keranjang (Muncul reaktif saat cart terisi) */}
-      {cart.length > 0 && (
-        <View style={styles.cartBarContainer}>
-          <View>
-            <Text style={styles.cartItemsCount}>
-              {cart.reduce((total, c) => total + c.qty, 0)} Item dipilih
+            <Text style={styles.userName} numberOfLines={1}>
+              {displayName}
             </Text>
-            <Text style={styles.cartTotalPrice}>{formatRupiah(totalCartPrice)}</Text>
           </View>
 
+          <View style={styles.authActionsRow}>
+            <TouchableOpacity
+              style={styles.headerActionBtn}
+              onPress={() => router.push("/missions" as any)}
+            >
+              <Ionicons
+                name="receipt-outline"
+                size={13}
+                color={CoffeeTheme.colors.brandSecondary}
+              />
+              <Text style={styles.headerActionText}>Pesanan</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.headerActionBtn}
+              onPress={() => router.push("/vault" as any)}
+            >
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={13}
+                color={CoffeeTheme.colors.textSecondary}
+              />
+              <Text style={styles.headerActionText}>Brankas</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.signOutBtn}
+              onPress={async () => {
+                await signOut();
+              }}
+            >
+              <Ionicons
+                name="log-out-outline"
+                size={15}
+                color={CoffeeTheme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Search Input Bar */}
+        <View style={styles.searchSection}>
+          <View style={styles.searchContainer}>
+            <Ionicons
+              name="search-outline"
+              size={18}
+              color={CoffeeTheme.colors.textMuted}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              placeholder="Cari kopi, makanan, atau racikan spesial..."
+              placeholderTextColor={CoffeeTheme.colors.textMuted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onSubmitEditing={handleSearch}
+              returnKeyType="search"
+              style={styles.searchInput}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchQuery("");
+                  void loadMenuFromApi();
+                }}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={18}
+                  color={CoffeeTheme.colors.textMuted}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Status Cloud & Refresh Bar */}
+        <View style={styles.apiStatusRow}>
+          <View style={styles.apiStatusTextContainer}>
+            <Text style={styles.apiStatusTitle}>
+              {isUsingFallback ? "Koleksi Kafe Koding" : "TheMealDB Cloud"}
+            </Text>
+            <Text style={styles.apiStatusMessage} numberOfLines={1}>
+              {apiMessage}
+            </Text>
+          </View>
           <TouchableOpacity
-            style={styles.checkoutBarButton}
-            onPress={handleOpenCheckout}
+            style={styles.refreshButton}
+            onPress={loadMenuFromApi}
+            disabled={isLoading}
           >
-            <Text style={styles.checkoutBarButtonText}>Lanjut Checkout</Text>
-            <Ionicons name="arrow-forward" size={18} color="#ffffff" />
+            <Ionicons
+              name="refresh-outline"
+              size={14}
+              color={CoffeeTheme.colors.brandSecondary}
+            />
+            <Text style={styles.refreshButtonText}>Segarkan</Text>
           </TouchableOpacity>
         </View>
-      )}
 
-      {/* Navigasi Fitur Tambahan & Demo */}
-      <View style={styles.codelabLinkContainer}>
-        <View style={styles.codelabButtonsRow}>
-          <TouchableOpacity
-            style={styles.codelabButton}
-            onPress={() => router.push("/missions" as any)}
-          >
-            <Ionicons name="cloud-done-outline" size={13} color="#0284c7" />
-            <Text style={styles.codelabText}>Tugas & Pesanan Cloud</Text>
-          </TouchableOpacity>
+        {/* Filter Kategori Chips & Toggle Pedas */}
+        <View style={styles.filterSection}>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={categories}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.categoryChip,
+                  selectedCategory === item && styles.categoryChipActive,
+                ]}
+                onPress={() => setSelectedCategory(item)}
+              >
+                <Text
+                  style={[
+                    styles.categoryText,
+                    selectedCategory === item && styles.categoryTextActive,
+                  ]}
+                >
+                  {item}
+                </Text>
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={styles.categoryList}
+          />
 
           <TouchableOpacity
-            style={styles.codelabButton}
-            onPress={() => router.push("/vault" as any)}
+            style={[
+              styles.spicyToggle,
+              isSpicyOnly && styles.spicyToggleActive,
+            ]}
+            onPress={() => setIsSpicyOnly(!isSpicyOnly)}
           >
-            <Ionicons name="lock-closed" size={13} color="#0284c7" />
-            <Text style={styles.codelabText}>Brankas Token (SecureStore)</Text>
+            <Ionicons
+              name="flame-outline"
+              size={13}
+              color={
+                isSpicyOnly
+                  ? CoffeeTheme.colors.spicyRed
+                  : CoffeeTheme.colors.textSecondary
+              }
+            />
+            <Text
+              style={[
+                styles.spicyToggleText,
+                isSpicyOnly && styles.spicyToggleTextActive,
+              ]}
+            >
+              Pedas
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.codelabButtonsRow}>
-          <TouchableOpacity
-            style={styles.codelabButton}
-            onPress={() => router.push("/filter")}
-          >
-            <Ionicons name="color-palette-outline" size={13} color="#64748b" />
-            <Text style={styles.codelabSubtext}>Filter Hitam Putih</Text>
-          </TouchableOpacity>
+        {/* Konten Utama Menu / Loading Indicator */}
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator
+              size="large"
+              color={CoffeeTheme.colors.brand}
+            />
+            <Text style={styles.loadingText}>Menyiapkan sajian lezat...</Text>
+          </View>
+        ) : (
+          <FlatList
+            key={`menu-grid-${numColumns}`}
+            data={filteredMenu}
+            numColumns={numColumns}
+            columnWrapperStyle={isMultiColumn ? styles.columnWrapper : undefined}
+            keyExtractor={(item) => item.id}
+            renderItem={renderMenuItem}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons
+                  name="cafe-outline"
+                  size={42}
+                  color={CoffeeTheme.colors.textMuted}
+                />
+                <Text style={styles.emptyTitle}>Sajian Tidak Ditemukan</Text>
+                <Text style={styles.emptySubtitle}>
+                  Silakan coba kata kunci lain atau pilih kategori &quot;Semua&quot;.
+                </Text>
+              </View>
+            }
+          />
+        )}
 
-          <TouchableOpacity
-            style={styles.codelabButton}
-            onPress={() => router.push("/codelab1")}
-          >
-            <Ionicons name="contrast-outline" size={13} color="#64748b" />
-            <Text style={styles.codelabSubtext}>Demo Tema Dark Mode</Text>
-          </TouchableOpacity>
+        {/* Floating Bar Keranjang */}
+        {cart.length > 0 && (
+          <View style={styles.cartBarWrapper}>
+            <View style={styles.cartBarContainer}>
+              <View style={styles.cartBarInfo}>
+                <View style={styles.cartIconBadge}>
+                  <Ionicons name="bag-handle-outline" size={16} color="#ffffff" />
+                </View>
+                <View>
+                  <Text style={styles.cartItemsCount}>
+                    {cart.reduce((total, c) => total + c.qty, 0)} Pesanan Dipilih
+                  </Text>
+                  <Text style={styles.cartTotalPrice}>
+                    {formatRupiah(totalCartPrice)}
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.checkoutBarButton}
+                onPress={handleOpenCheckout}
+              >
+                <Text style={styles.checkoutBarButtonText}>Selesaikan Order</Text>
+                <Ionicons name="arrow-forward-outline" size={16} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Footer Fitur Kafe Koding & Akses Modul */}
+        <View style={styles.footerNav}>
+          <Text style={styles.footerNote}>KAFE KODING — MODUL PRAKTIKUM MOBILE</Text>
+          <View style={styles.footerButtonsRow}>
+            <TouchableOpacity
+              style={styles.footerButton}
+              onPress={() => router.push("/missions" as any)}
+            >
+              <Ionicons
+                name="receipt-outline"
+                size={12}
+                color={CoffeeTheme.colors.textSecondary}
+              />
+              <Text style={styles.footerButtonText}>Pesanan Cloud</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.footerButton}
+              onPress={() => router.push("/vault" as any)}
+            >
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={12}
+                color={CoffeeTheme.colors.textSecondary}
+              />
+              <Text style={styles.footerButtonText}>Brankas Token</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.footerButton}
+              onPress={() => router.push("/feedback-list")}
+            >
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={12}
+                color={CoffeeTheme.colors.textSecondary}
+              />
+              <Text style={styles.footerButtonText}>Ulasan</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.footerButton}
+              onPress={() => router.push("/codelab1")}
+            >
+              <Ionicons
+                name="contrast-outline"
+                size={12}
+                color={CoffeeTheme.colors.textSecondary}
+              />
+              <Text style={styles.footerButtonText}>Mode Tampilan</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </View>
@@ -485,256 +585,249 @@ export default function IndexScreen() {
 }
 
 // =========================================================================
-// EXTERNAL STYLES (StyleSheet.create)
+// EXTERNAL STYLES: Responsive & Artisanal Coffeehouse Aesthetic
 // =========================================================================
 const styles = StyleSheet.create({
+  screenWrapper: {
+    flex: 1,
+    backgroundColor: CoffeeTheme.colors.canvas,
+    alignItems: "center",
+  },
+  contentContainer: {
+    flex: 1,
+    width: "100%",
+    maxWidth: CoffeeTheme.layout.maxContentWidth,
+  },
   authStatusBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#0f172a",
+    backgroundColor: CoffeeTheme.colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderColor: "#1e293b",
+    borderColor: CoffeeTheme.colors.border,
   },
   authInfoCol: {
     flex: 1,
-    marginRight: 8,
+    marginRight: 10,
   },
-  agentBadge: {
+  memberStatusRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 5,
     marginBottom: 2,
   },
-  agentActiveDot: {
+  activeDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#10b981",
+    backgroundColor: CoffeeTheme.colors.successGreen,
   },
-  agentBadgeText: {
-    color: "#94a3b8",
-    fontSize: 9,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-  },
-  agentName: {
-    color: "#f8fafc",
-    fontSize: 13,
+  memberStatusText: {
+    color: CoffeeTheme.colors.textSecondary,
+    fontSize: 10,
     fontWeight: "700",
+    letterSpacing: 0.6,
   },
-  agentEmail: {
-    color: "#64748b",
-    fontSize: 11,
-    fontWeight: "400",
+  userName: {
+    color: CoffeeTheme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "700",
   },
   authActionsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-  },
-  missionsNavBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#1e293b",
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: "#334155",
-  },
-  missionsNavBtnText: {
-    color: "#38bdf8",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  vaultNavBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#1e293b",
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: "#334155",
-  },
-  vaultNavBtnText: {
-    color: "#f59e0b",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  signOutHeaderBtn: {
-    backgroundColor: "#1e293b",
-    padding: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#374151",
-  },
-  codelabButtonsRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginVertical: 2,
-  },
-  codelabSubtext: {
-    fontSize: 11,
-    color: "#64748b",
-  },
-  container: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
-  },
-  apiStatusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginHorizontal: 16,
-    marginBottom: 8,
-    padding: 10,
-    backgroundColor: "#eff6ff",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#dbeafe",
     gap: 8,
   },
-  apiStatusTextContainer: {
-    flex: 1,
-  },
-  apiStatusTitle: {
-    color: "#1e40af",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  priceNote: {
-    color: "#64748b",
-    fontSize: 10,
-    marginTop: 2,
-  },
-  apiStatusMessage: {
-    color: "#475569",
-    fontSize: 10,
-    marginTop: 2,
-  },
-  refreshButton: {
+  headerActionBtn: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: CoffeeTheme.radii.md,
     gap: 4,
-    backgroundColor: "#0284c7",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: CoffeeTheme.colors.border,
   },
-  refreshButtonText: {
-    color: "#ffffff",
+  headerActionText: {
+    color: CoffeeTheme.colors.textPrimary,
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "600",
+  },
+  signOutBtn: {
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
+    padding: 7,
+    borderRadius: CoffeeTheme.radii.md,
+    borderWidth: 1,
+    borderColor: CoffeeTheme.colors.border,
+  },
+  searchSection: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 6,
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
+    backgroundColor: CoffeeTheme.colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: CoffeeTheme.radii.lg,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    borderColor: CoffeeTheme.colors.border,
   },
   searchIcon: {
     marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: "#1e293b",
+    fontSize: 13,
+    color: CoffeeTheme.colors.textPrimary,
+    outlineStyle: "none" as any,
+  },
+  apiStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 16,
+    marginTop: 6,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
+    borderRadius: CoffeeTheme.radii.md,
+    borderWidth: 1,
+    borderColor: CoffeeTheme.colors.border,
+    gap: 8,
+  },
+  apiStatusTextContainer: {
+    flex: 1,
+  },
+  apiStatusTitle: {
+    color: CoffeeTheme.colors.brandSecondary,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  apiStatusMessage: {
+    color: CoffeeTheme.colors.textSecondary,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  refreshButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: CoffeeTheme.colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: CoffeeTheme.radii.sm,
+    borderWidth: 1,
+    borderColor: CoffeeTheme.colors.border,
+  },
+  refreshButtonText: {
+    color: CoffeeTheme.colors.brandSecondary,
+    fontSize: 11,
+    fontWeight: "600",
   },
   filterSection: {
     paddingHorizontal: 16,
-    marginBottom: 8,
+    marginBottom: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   categoryList: {
-    paddingVertical: 6,
     gap: 8,
+    paddingVertical: 4,
   },
   categoryChip: {
-    backgroundColor: "#ffffff",
+    backgroundColor: CoffeeTheme.colors.surface,
     paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
+    paddingVertical: 6,
+    borderRadius: CoffeeTheme.radii.full,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: CoffeeTheme.colors.border,
   },
   categoryChipActive: {
-    backgroundColor: "#0284c7",
-    borderColor: "#0284c7",
+    backgroundColor: CoffeeTheme.colors.brand,
+    borderColor: CoffeeTheme.colors.brand,
   },
   categoryText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "500",
-    color: "#64748b",
+    color: CoffeeTheme.colors.textSecondary,
   },
   categoryTextActive: {
     color: "#ffffff",
-    fontWeight: "700",
+    fontWeight: "600",
   },
   spicyToggle: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#ffffff",
+    backgroundColor: CoffeeTheme.colors.surface,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: CoffeeTheme.radii.full,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: CoffeeTheme.colors.border,
     gap: 4,
-    marginLeft: 6,
+    marginLeft: 8,
+  },
+  spicyToggleActive: {
+    backgroundColor: CoffeeTheme.colors.spicyRedBg,
+    borderColor: CoffeeTheme.colors.spicyRedBorder,
   },
   spicyToggleText: {
-    fontSize: 12,
-    color: "#64748b",
+    fontSize: 11,
+    color: CoffeeTheme.colors.textSecondary,
     fontWeight: "500",
+  },
+  spicyToggleTextActive: {
+    color: CoffeeTheme.colors.spicyRed,
+    fontWeight: "700",
   },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 90,
+    paddingBottom: 110,
+  },
+  columnWrapper: {
+    gap: 12,
   },
   card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 12,
-    flexDirection: "row",
+    backgroundColor: CoffeeTheme.colors.surface,
+    borderRadius: CoffeeTheme.radii.lg,
     borderWidth: 1,
-    borderColor: "#f1f5f9",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: CoffeeTheme.colors.border,
+    overflow: "hidden",
+    marginBottom: 12,
   },
-  image: {
-    width: 95,
-    height: 95,
-    borderRadius: 12,
-    marginRight: 14,
-    backgroundColor: "#f1f5f9",
+  rowCard: {
+    flexDirection: "row",
+    padding: 12,
+  },
+  gridCard: {
+    flex: 1,
+    flexDirection: "column",
+    padding: 0,
+  },
+  rowImage: {
+    width: 90,
+    height: 90,
+    borderRadius: CoffeeTheme.radii.md,
+    marginRight: 12,
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
+  },
+  gridImage: {
+    width: "100%",
+    height: 140,
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
   },
   infoContainer: {
     flex: 1,
     justifyContent: "space-between",
+    padding: 12,
   },
   cardHeader: {
     flexDirection: "row",
@@ -742,31 +835,32 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   name: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
-    color: "#0f172a",
+    color: CoffeeTheme.colors.textPrimary,
     flex: 1,
-    marginRight: 6,
+    marginRight: 8,
   },
   ratingBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fef3c7",
+    backgroundColor: CoffeeTheme.colors.accentAmberBg,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: CoffeeTheme.radii.sm,
     gap: 3,
   },
   ratingText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#b45309",
+    color: CoffeeTheme.colors.accentAmber,
+    fontVariant: ["tabular-nums"],
   },
   description: {
-    fontSize: 12,
-    color: "#64748b",
-    lineHeight: 17,
-    marginTop: 2,
+    fontSize: 11,
+    color: CoffeeTheme.colors.textSecondary,
+    lineHeight: 16,
+    marginTop: 4,
   },
   tagRow: {
     flexDirection: "row",
@@ -777,53 +871,81 @@ const styles = StyleSheet.create({
   tagBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f8fafc",
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: CoffeeTheme.colors.borderSubtle,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: CoffeeTheme.radii.sm,
+    gap: 3,
   },
   tagText: {
-    fontSize: 11,
-    color: "#64748b",
-    marginLeft: 3,
+    fontSize: 10,
+    color: CoffeeTheme.colors.textSecondary,
+  },
+  spicyBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: CoffeeTheme.colors.spicyRedBg,
+    borderWidth: 1,
+    borderColor: CoffeeTheme.colors.spicyRedBorder,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: CoffeeTheme.radii.sm,
+    gap: 2,
+  },
+  spicyText: {
+    fontSize: 10,
+    color: CoffeeTheme.colors.spicyRed,
+    fontWeight: "600",
   },
   bottomRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 8,
+    marginTop: 10,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderColor: CoffeeTheme.colors.borderSubtle,
   },
   price: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
-    color: "#0284c7",
+    color: CoffeeTheme.colors.brand,
+    fontVariant: ["tabular-nums"],
+  },
+  priceNote: {
+    color: CoffeeTheme.colors.textMuted,
+    fontSize: 9,
+    marginTop: 1,
   },
   addButton: {
-    backgroundColor: "#0ea5e9",
+    backgroundColor: CoffeeTheme.colors.brand,
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: CoffeeTheme.radii.md,
     gap: 4,
+  },
+  addButtonActive: {
+    backgroundColor: CoffeeTheme.colors.brandSecondary,
   },
   addButtonText: {
     color: "#ffffff",
-    fontWeight: "700",
-    fontSize: 12,
+    fontWeight: "600",
+    fontSize: 11,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingTop: 80,
+    paddingTop: 60,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: "#64748b",
+    marginTop: 10,
+    fontSize: 13,
+    color: CoffeeTheme.colors.textSecondary,
   },
   emptyContainer: {
     alignItems: "center",
@@ -831,73 +953,107 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
-    color: "#334155",
-    marginTop: 12,
+    color: CoffeeTheme.colors.textPrimary,
+    marginTop: 10,
   },
   emptySubtitle: {
-    fontSize: 13,
-    color: "#94a3b8",
+    fontSize: 12,
+    color: CoffeeTheme.colors.textSecondary,
     textAlign: "center",
     marginTop: 4,
-    paddingHorizontal: 30,
+    paddingHorizontal: 24,
+  },
+  cartBarWrapper: {
+    position: "absolute",
+    bottom: 24,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    paddingHorizontal: 16,
   },
   cartBarContainer: {
-    position: "absolute",
-    bottom: 34,
-    left: 16,
-    right: 16,
-    backgroundColor: "#0f172a",
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 16,
+    width: "100%",
+    maxWidth: 680,
+    backgroundColor: CoffeeTheme.colors.textPrimary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: CoffeeTheme.radii.xl,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: CoffeeTheme.colors.borderProminent,
+  },
+  cartBarInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  cartIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: CoffeeTheme.colors.brandSecondary,
+    alignItems: "center",
+    justifyContent: "center",
   },
   cartItemsCount: {
-    color: "#94a3b8",
-    fontSize: 12,
+    color: CoffeeTheme.colors.textMuted,
+    fontSize: 11,
     fontWeight: "500",
   },
   cartTotalPrice: {
     color: "#ffffff",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "800",
+    fontVariant: ["tabular-nums"],
   },
   checkoutBarButton: {
-    backgroundColor: "#0ea5e9",
+    backgroundColor: CoffeeTheme.colors.accentAmber,
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 10,
-    gap: 6,
+    borderRadius: CoffeeTheme.radii.lg,
+    gap: 5,
   },
   checkoutBarButtonText: {
     color: "#ffffff",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
   },
-  codelabLinkContainer: {
+  footerNav: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderColor: CoffeeTheme.colors.border,
     alignItems: "center",
-    paddingVertical: 8,
+    backgroundColor: CoffeeTheme.colors.surface,
   },
-  codelabButton: {
+  footerNote: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: CoffeeTheme.colors.textMuted,
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  footerButtonsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 12,
+  },
+  footerButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingVertical: 4,
+    gap: 4,
+    paddingVertical: 3,
   },
-  codelabText: {
+  footerButtonText: {
     fontSize: 11,
-    color: "#64748b",
-    textDecorationLine: "underline",
+    color: CoffeeTheme.colors.textSecondary,
+    fontWeight: "500",
   },
 });

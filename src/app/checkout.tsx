@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { CoffeeTheme } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 import { createMission, saveOrderToCloud } from "@/services/missionService";
 
@@ -46,7 +47,7 @@ export default function CheckoutScreen() {
   // =========================================================================
   // 2. KRITERIA PENILAIAN MODUL 2: HOOK USESTATE
   // =========================================================================
-  const [customerName, setCustomerName] = useState<string>("Rizqi");
+  const [customerName, setCustomerName] = useState<string>("Pelanggan Kafe");
   const [tableNumber, setTableNumber] = useState<string>("07");
   const [paymentMethod, setPaymentMethod] = useState<"QRIS" | "Tunai" | "Debit">("QRIS");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -70,9 +71,6 @@ export default function CheckoutScreen() {
 
   // =========================================================================
   // 4. KRITERIA PENILAIAN MODUL 2: ROUTER.REPLACE()
-  // Dijelaskan pada Modul 2 hal. 33:
-  // "router.replace() menggantikan screen saat ini di dalam stack...
-  //  Metode ini juga cocok digunakan pada halaman penyelesaian pesanan setelah proses checkout."
   // =========================================================================
   const handleConfirmOrder = () => {
     if (!customerName.trim()) {
@@ -112,254 +110,269 @@ export default function CheckoutScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Ringkasan Meja & Pemesan */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Informasi Pemesan</Text>
-          <View style={styles.inputRow}>
-            <View style={{ flex: 2, marginRight: 10 }}>
-              <Text style={styles.inputLabel}>Nama Pelanggan</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Nama Anda"
-                value={customerName}
-                onChangeText={setCustomerName}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.inputLabel}>No. Meja</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Meja"
-                value={tableNumber}
-                onChangeText={setTableNumber}
-                keyboardType="numeric"
-              />
+    <View style={styles.screenWrapper}>
+      <View style={styles.contentContainer}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Ringkasan Meja & Pemesan */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Informasi Pemesan</Text>
+            <View style={styles.inputRow}>
+              <View style={{ flex: 2, marginRight: 10 }}>
+                <Text style={styles.inputLabel}>Nama Pelanggan</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Nama Pemesan"
+                  placeholderTextColor={CoffeeTheme.colors.textMuted}
+                  value={customerName}
+                  onChangeText={setCustomerName}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>No. Meja</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="01"
+                  placeholderTextColor={CoffeeTheme.colors.textMuted}
+                  value={tableNumber}
+                  onChangeText={setTableNumber}
+                  keyboardType="numeric"
+                />
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Daftar Pesanan */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Rincian Menu ({items.length} Macam)</Text>
-          {items.map((item, index) => (
-            <View key={`${item.id}-${index}`} style={styles.itemRow}>
-              <Image source={{ uri: item.imageUri }} style={styles.itemThumb} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemSubtext}>
-                  {item.qty}x @ {formatRupiah(item.price)}
-                  {item.spicyLevel ? ` • Lvl ${item.spicyLevel}` : ""}
+          {/* Daftar Pesanan */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Rincian Menu ({items.length} Macam)</Text>
+            {items.map((item, index) => (
+              <View key={`${item.id}-${index}`} style={styles.itemRow}>
+                <Image source={{ uri: item.imageUri }} style={styles.itemThumb} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.itemName}>{item.name}</Text>
+                  <Text style={styles.itemSubtext}>
+                    {item.qty}x @ {formatRupiah(item.price)}
+                    {item.spicyLevel ? ` • Lvl ${item.spicyLevel}` : ""}
+                  </Text>
+                  {item.note ? (
+                    <Text style={styles.itemNoteText}>Catatan: {item.note}</Text>
+                  ) : null}
+                </View>
+                <Text style={styles.itemTotalPrice}>
+                  {formatRupiah(item.price * item.qty)}
                 </Text>
-                {item.note ? (
-                  <Text style={styles.itemNoteText}>Catatan: {item.note}</Text>
-                ) : null}
               </View>
-              <Text style={styles.itemTotalPrice}>
-                {formatRupiah(item.price * item.qty)}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Pilihan Metode Pembayaran */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Metode Pembayaran</Text>
-          <View style={styles.paymentMethodRow}>
-            {(["QRIS", "Tunai", "Debit"] as const).map((method) => (
-              <TouchableOpacity
-                key={method}
-                style={[
-                  styles.methodButton,
-                  paymentMethod === method && styles.methodButtonActive,
-                ]}
-                onPress={() => setPaymentMethod(method)}
-              >
-                <Ionicons
-                  name={
-                    method === "QRIS"
-                      ? "qr-code-outline"
-                      : method === "Tunai"
-                      ? "cash-outline"
-                      : "card-outline"
-                  }
-                  size={20}
-                  color={paymentMethod === method ? "#0284c7" : "#64748b"}
-                />
-                <Text
-                  style={[
-                    styles.methodText,
-                    paymentMethod === method && styles.methodTextActive,
-                  ]}
-                >
-                  {method}
-                </Text>
-              </TouchableOpacity>
             ))}
           </View>
+
+          {/* Pilihan Metode Pembayaran */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Metode Pembayaran</Text>
+            <View style={styles.paymentMethodRow}>
+              {(["QRIS", "Tunai", "Debit"] as const).map((method) => (
+                <TouchableOpacity
+                  key={method}
+                  style={[
+                    styles.methodButton,
+                    paymentMethod === method && styles.methodButtonActive,
+                  ]}
+                  onPress={() => setPaymentMethod(method)}
+                >
+                  <Ionicons
+                    name={
+                      method === "QRIS"
+                        ? "qr-code-outline"
+                        : method === "Tunai"
+                        ? "cash-outline"
+                        : "card-outline"
+                    }
+                    size={18}
+                    color={
+                      paymentMethod === method
+                        ? CoffeeTheme.colors.brandSecondary
+                        : CoffeeTheme.colors.textSecondary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.methodText,
+                      paymentMethod === method && styles.methodTextActive,
+                    ]}
+                  >
+                    {method}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Rincian Biaya */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Rincian Pembayaran</Text>
+            <View style={styles.costRow}>
+              <Text style={styles.costLabel}>Subtotal Pesanan</Text>
+              <Text style={styles.costValue}>{formatRupiah(subtotal)}</Text>
+            </View>
+            <View style={styles.costRow}>
+              <Text style={styles.costLabel}>Pajak Restoran (PB1 10%)</Text>
+              <Text style={styles.costValue}>{formatRupiah(tax)}</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.costRow}>
+              <Text style={styles.totalLabel}>Total Tagihan</Text>
+              <Text style={styles.totalValue}>{formatRupiah(total)}</Text>
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* Bottom Bar Konfirmasi Pembayaran */}
+        <View style={styles.bottomBarWrapper}>
+          <View style={styles.bottomBar}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleBackToMenu}
+            >
+              <Text style={styles.cancelButtonText}>Ubah</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.confirmButton}
+              activeOpacity={0.88}
+              disabled={isProcessing}
+              onPress={handleConfirmOrder}
+            >
+              {isProcessing ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-outline" size={18} color="#ffffff" />
+                  <Text style={styles.confirmButtonText}>
+                    Bayar & Selesaikan ({formatRupiah(total)})
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
-
-        {/* Rincian Biaya */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Rincian Pembayaran</Text>
-          <View style={styles.costRow}>
-            <Text style={styles.costLabel}>Subtotal Pesanan</Text>
-            <Text style={styles.costValue}>{formatRupiah(subtotal)}</Text>
-          </View>
-          <View style={styles.costRow}>
-            <Text style={styles.costLabel}>Pajak Restoran (PB1 10%)</Text>
-            <Text style={styles.costValue}>{formatRupiah(tax)}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.costRow}>
-            <Text style={styles.totalLabel}>Total Tagihan</Text>
-            <Text style={styles.totalValue}>{formatRupiah(total)}</Text>
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* Bottom Bar Konfirmasi Pembayaran */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={handleBackToMenu}
-        >
-          <Text style={styles.cancelButtonText}>Ubah</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.confirmButton}
-          activeOpacity={0.85}
-          disabled={isProcessing}
-          onPress={handleConfirmOrder}
-        >
-          {isProcessing ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <>
-              <Ionicons name="checkmark-done" size={20} color="#ffffff" />
-              <Text style={styles.confirmButtonText}>
-                Bayar & Selesaikan ({formatRupiah(total)})
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screenWrapper: {
     flex: 1,
-    backgroundColor: "#f8fafc",
+    backgroundColor: CoffeeTheme.colors.canvas,
+    alignItems: "center",
+  },
+  contentContainer: {
+    flex: 1,
+    width: "100%",
+    maxWidth: CoffeeTheme.layout.maxDetailWidth,
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 110,
+    paddingBottom: 90,
   },
   card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
+    backgroundColor: CoffeeTheme.colors.surface,
+    borderRadius: CoffeeTheme.radii.lg,
     padding: 16,
-    marginBottom: 14,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: CoffeeTheme.colors.border,
+    marginBottom: 12,
   },
   cardTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
-    color: "#0f172a",
+    color: CoffeeTheme.colors.textPrimary,
     marginBottom: 12,
   },
   inputRow: {
     flexDirection: "row",
   },
   inputLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
-    color: "#64748b",
-    marginBottom: 6,
+    color: CoffeeTheme.colors.textSecondary,
+    marginBottom: 5,
   },
   textInput: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 10,
+    borderColor: CoffeeTheme.colors.border,
+    borderRadius: CoffeeTheme.radii.md,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: "#1e293b",
+    paddingVertical: 9,
+    fontSize: 13,
+    color: CoffeeTheme.colors.textPrimary,
+    outlineStyle: "none" as any,
   },
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    borderColor: CoffeeTheme.colors.borderSubtle,
   },
   itemThumb: {
     width: 48,
     height: 48,
-    borderRadius: 8,
+    borderRadius: CoffeeTheme.radii.md,
     marginRight: 12,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
   },
   itemName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
-    color: "#1e293b",
+    color: CoffeeTheme.colors.textPrimary,
   },
   itemSubtext: {
-    fontSize: 12,
-    color: "#64748b",
+    fontSize: 11,
+    color: CoffeeTheme.colors.textSecondary,
     marginTop: 2,
   },
   itemNoteText: {
     fontSize: 11,
-    color: "#f59e0b",
+    color: CoffeeTheme.colors.textMuted,
     fontStyle: "italic",
     marginTop: 2,
   },
   itemTotalPrice: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
-    color: "#0284c7",
-    marginLeft: 8,
+    color: CoffeeTheme.colors.brand,
+    fontVariant: ["tabular-nums"],
   },
   paymentMethodRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
   },
   methodButton: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#f8fafc",
+    paddingVertical: 10,
+    borderRadius: CoffeeTheme.radii.md,
+    borderWidth: 1,
+    borderColor: CoffeeTheme.colors.border,
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
     gap: 6,
   },
   methodButtonActive: {
-    borderColor: "#0284c7",
-    backgroundColor: "#e0f2fe",
+    borderColor: CoffeeTheme.colors.brandSecondary,
+    backgroundColor: CoffeeTheme.colors.brandSubtle,
   },
   methodText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
-    color: "#64748b",
+    color: CoffeeTheme.colors.textSecondary,
   },
   methodTextActive: {
-    color: "#0284c7",
+    color: CoffeeTheme.colors.brandSecondary,
     fontWeight: "700",
   },
   costRow: {
@@ -368,76 +381,70 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   costLabel: {
-    fontSize: 13,
-    color: "#64748b",
+    fontSize: 12,
+    color: CoffeeTheme.colors.textSecondary,
   },
   costValue: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
-    color: "#1e293b",
+    color: CoffeeTheme.colors.textPrimary,
+    fontVariant: ["tabular-nums"],
   },
   divider: {
     height: 1,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: CoffeeTheme.colors.border,
     marginVertical: 10,
   },
   totalLabel: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
-    color: "#0f172a",
+    color: CoffeeTheme.colors.textPrimary,
   },
   totalValue: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
-    color: "#0284c7",
+    color: CoffeeTheme.colors.brand,
+    fontVariant: ["tabular-nums"],
+  },
+  bottomBarWrapper: {
+    borderTopWidth: 1,
+    borderColor: CoffeeTheme.colors.border,
+    backgroundColor: CoffeeTheme.colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   bottomBar: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   cancelButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: CoffeeTheme.radii.md,
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: CoffeeTheme.colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
   cancelButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#475569",
+    color: CoffeeTheme.colors.textSecondary,
   },
   confirmButton: {
     flex: 1,
-    backgroundColor: "#0284c7",
+    backgroundColor: CoffeeTheme.colors.brand,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 8,
-    shadowColor: "#0284c7",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 3,
+    paddingVertical: 11,
+    borderRadius: CoffeeTheme.radii.md,
+    gap: 6,
   },
   confirmButtonText: {
     color: "#ffffff",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
   },
 });
-

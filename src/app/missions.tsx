@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { CoffeeTheme } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import {
   createMission,
@@ -39,7 +40,10 @@ export default function MissionsScreen() {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const displayName = (user?.user_metadata as any)?.callsign || user?.email?.split('@')[0] || 'Pengguna';
+  const displayName =
+    (user?.user_metadata as any)?.callsign ||
+    user?.email?.split('@')[0] ||
+    'Pelanggan';
 
   const loadMissions = useCallback(async () => {
     try {
@@ -88,12 +92,10 @@ export default function MissionsScreen() {
 
     try {
       const created = await createMission(title, points, user?.id);
-      // Ganti objek optimistik dengan data asli dari database
       setMissions((prev) =>
         prev.map((m) => (m.id === tempId ? created : m))
       );
     } catch (error: any) {
-      // Rollback jika terjadi error
       setMissions((prev) => prev.filter((m) => m.id !== tempId));
       Alert.alert(
         'Gagal Menyimpan ke Cloud',
@@ -106,13 +108,11 @@ export default function MissionsScreen() {
 
   const handleDelete = async (id: string) => {
     const backup = [...missions];
-    // Optimistic delete
     setMissions((prev) => prev.filter((m) => m.id !== id));
 
     try {
       await deleteMission(id);
     } catch (error: any) {
-      // Rollback
       setMissions(backup);
       Alert.alert('Gagal Menghapus', error.message);
     }
@@ -122,7 +122,6 @@ export default function MissionsScreen() {
     const originalStatus = mission.status;
     const nextStatus = originalStatus === 'pending' ? 'completed' : 'pending';
 
-    // Optimistic update
     setMissions((prev) =>
       prev.map((m) => (m.id === mission.id ? { ...m, status: nextStatus } : m))
     );
@@ -130,7 +129,6 @@ export default function MissionsScreen() {
     try {
       await toggleMissionStatus(mission.id, originalStatus);
     } catch (error: any) {
-      // Rollback
       setMissions((prev) =>
         prev.map((m) =>
           m.id === mission.id ? { ...m, status: originalStatus } : m
@@ -168,7 +166,11 @@ export default function MissionsScreen() {
           <Ionicons
             name={isCompleted ? 'checkmark-circle' : 'time-outline'}
             size={14}
-            color={isCompleted ? '#10b981' : '#f59e0b'}
+            color={
+              isCompleted
+                ? CoffeeTheme.colors.successGreen
+                : CoffeeTheme.colors.accentAmber
+            }
           />
           <Text
             style={[
@@ -176,7 +178,7 @@ export default function MissionsScreen() {
               isCompleted && styles.statusTextCompleted,
             ]}
           >
-            {isCompleted ? 'SELESAI' : 'PROSES'}
+            {isCompleted ? 'SELESAI' : 'ANTREAN'}
           </Text>
         </TouchableOpacity>
 
@@ -187,245 +189,263 @@ export default function MissionsScreen() {
           >
             {item.title}
           </Text>
-          <Text style={styles.xpText}>{item.reward_points} Poin</Text>
+          <Text style={styles.xpText}>{item.reward_points} Poin Reward</Text>
         </View>
 
         <TouchableOpacity
           style={styles.deleteButton}
           onPress={() => handleDelete(item.id)}
         >
-          <Ionicons name="close" size={18} color="#64748b" />
+          <Ionicons
+            name="trash-outline"
+            size={16}
+            color={CoffeeTheme.colors.textMuted}
+          />
         </TouchableOpacity>
       </View>
     );
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
-    >
-      {/* Top Header Card */}
-      <View style={styles.headerCard}>
-        <View style={styles.userInfo}>
-          <View style={styles.statusDotRow}>
-            <View style={styles.greenDot} />
-            <Text style={styles.statusDotText}>DATABASE CLOUD : TERHUBUNG</Text>
-          </View>
-          <Text style={styles.callsignText}>{displayName}</Text>
-          <Text style={styles.emailText}>{user?.email}</Text>
-          <Text style={styles.uidText} numberOfLines={1}>
-            UID: {user?.id}
-          </Text>
-        </View>
-
-        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-          <Ionicons name="log-out-outline" size={16} color="#ef4444" />
-          <Text style={styles.signOutText}>Keluar</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Form Tambah Tugas / Pesanan Cloud */}
-      <View style={styles.dispatchSection}>
-        <Text style={styles.sectionTitle}>TAMBAH TUGAS / CATATAN PESANAN</Text>
-        <TextInput
-          style={styles.inputTitle}
-          placeholder="Nama tugas atau catatan pesanan..."
-          placeholderTextColor="#64748b"
-          value={newTitle}
-          onChangeText={setNewTitle}
-          editable={!isSubmitting}
-        />
-        <View style={styles.dispatchRow}>
-          <TextInput
-            style={styles.inputXp}
-            placeholder="100"
-            placeholderTextColor="#64748b"
-            keyboardType="number-pad"
-            value={rewardPoints}
-            onChangeText={setRewardPoints}
-            editable={!isSubmitting}
-          />
-          <TouchableOpacity
-            style={[
-              styles.dispatchBtn,
-              isSubmitting && styles.dispatchBtnDisabled,
-            ]}
-            onPress={handleDispatchMission}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#0f172a" size="small" />
-            ) : (
-              <Text style={styles.dispatchBtnText}>Tambah</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* List Tugas / Pesanan */}
-      <View style={styles.listSection}>
-        <View style={styles.listHeaderRow}>
-          <Text style={styles.sectionTitle}>DAFTAR TUGAS & PESANAN CLOUD</Text>
-          <Text style={styles.queueCount}>{missions.length} TERCATAT</Text>
-        </View>
-
-        {isLoading ? (
-          <View style={styles.centerLoading}>
-            <ActivityIndicator size="large" color="#38bdf8" />
-            <Text style={styles.loadingText}>Memuat data dari cloud...</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={missions}
-            keyExtractor={(item) => item.id}
-            renderItem={renderMissionItem}
-            contentContainerStyle={styles.listContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={onRefresh}
-                tintColor="#38bdf8"
-              />
-            }
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Ionicons name="clipboard-outline" size={48} color="#334155" />
-                <Text style={styles.emptyTitle}>Belum Ada Tugas atau Pesanan</Text>
-                <Text style={styles.emptySubtitle}>
-                  Tambahkan tugas atau pesanan baru melalui form di atas.
-                </Text>
+    <View style={styles.screenWrapper}>
+      <View style={styles.contentContainer}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          {/* Top Header Card */}
+          <View style={styles.headerCard}>
+            <View style={styles.userInfo}>
+              <View style={styles.statusDotRow}>
+                <View style={styles.greenDot} />
+                <Text style={styles.statusDotText}>DATABASE CLOUD TERKONEKSI</Text>
               </View>
-            }
-          />
-        )}
+              <Text style={styles.callsignText}>{displayName}</Text>
+              <Text style={styles.emailText}>{user?.email}</Text>
+            </View>
+
+            <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
+              <Ionicons
+                name="log-out-outline"
+                size={14}
+                color={CoffeeTheme.colors.textSecondary}
+              />
+              <Text style={styles.signOutText}>Keluar</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Form Tambah Tugas / Pesanan Cloud */}
+          <View style={styles.dispatchSection}>
+            <Text style={styles.sectionTitle}>CATATAN PESANAN ATAU TUGAS BARU</Text>
+            <TextInput
+              style={styles.inputTitle}
+              placeholder="Tuliskan catatan pesanan atau tugas..."
+              placeholderTextColor={CoffeeTheme.colors.textMuted}
+              value={newTitle}
+              onChangeText={setNewTitle}
+              editable={!isSubmitting}
+            />
+            <View style={styles.dispatchRow}>
+              <TextInput
+                style={styles.inputXp}
+                placeholder="100"
+                placeholderTextColor={CoffeeTheme.colors.textMuted}
+                keyboardType="number-pad"
+                value={rewardPoints}
+                onChangeText={setRewardPoints}
+                editable={!isSubmitting}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.dispatchBtn,
+                  isSubmitting && styles.dispatchBtnDisabled,
+                ]}
+                onPress={handleDispatchMission}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <Text style={styles.dispatchBtnText}>Simpan ke Cloud</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* List Tugas / Pesanan */}
+          <View style={styles.listSection}>
+            <View style={styles.listHeaderRow}>
+              <Text style={styles.sectionTitle}>DAFTAR PESANAN & TUGAS AKTIF</Text>
+              <Text style={styles.queueCount}>{missions.length} DATA</Text>
+            </View>
+
+            {isLoading ? (
+              <View style={styles.centerLoading}>
+                <ActivityIndicator
+                  size="large"
+                  color={CoffeeTheme.colors.brand}
+                />
+                <Text style={styles.loadingText}>Memuat catatan dari cloud...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={missions}
+                keyExtractor={(item) => item.id}
+                renderItem={renderMissionItem}
+                contentContainerStyle={styles.listContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={isRefreshing}
+                    onRefresh={onRefresh}
+                    tintColor={CoffeeTheme.colors.brand}
+                  />
+                }
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Ionicons
+                      name="receipt-outline"
+                      size={40}
+                      color={CoffeeTheme.colors.textMuted}
+                    />
+                    <Text style={styles.emptyTitle}>Belum Ada Catatan</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Semua pesanan dan tugas yang tersimpan di cloud akan tampil di sini.
+                    </Text>
+                  </View>
+                }
+              />
+            )}
+          </View>
+        </KeyboardAvoidingView>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screenWrapper: {
     flex: 1,
-    backgroundColor: '#0a0f1d',
+    backgroundColor: CoffeeTheme.colors.canvas,
+    alignItems: 'center',
+  },
+  contentContainer: {
+    flex: 1,
+    width: '100%',
+    maxWidth: CoffeeTheme.layout.maxDetailWidth,
   },
   headerCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#111827',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    backgroundColor: CoffeeTheme.colors.surface,
+    padding: 16,
     borderBottomWidth: 1,
-    borderColor: '#1f2937',
+    borderColor: CoffeeTheme.colors.border,
   },
   userInfo: {
     flex: 1,
-    marginRight: 12,
   },
   statusDotRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
+    gap: 5,
+    marginBottom: 2,
   },
   greenDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#10b981',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: CoffeeTheme.colors.successGreen,
   },
   statusDotText: {
-    color: '#9ca3af',
+    color: CoffeeTheme.colors.textSecondary,
     fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1,
+    fontWeight: '700',
+    letterSpacing: 0.6,
   },
   callsignText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#f9fafb',
+    color: CoffeeTheme.colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
   },
   emailText: {
-    fontSize: 12,
-    color: '#9ca3af',
-  },
-  uidText: {
-    fontSize: 10,
-    color: '#64748b',
-    marginTop: 2,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    color: CoffeeTheme.colors.textSecondary,
+    fontSize: 11,
+    marginTop: 1,
   },
   signOutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#1e293b',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: CoffeeTheme.radii.md,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: CoffeeTheme.colors.border,
   },
   signOutText: {
-    color: '#ef4444',
-    fontSize: 12,
-    fontWeight: '700',
+    color: CoffeeTheme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
   },
   dispatchSection: {
+    backgroundColor: CoffeeTheme.colors.surface,
     padding: 16,
-    backgroundColor: '#111827',
     borderBottomWidth: 1,
-    borderColor: '#1f2937',
+    borderColor: CoffeeTheme.colors.border,
   },
   sectionTitle: {
-    color: '#9ca3af',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
+    color: CoffeeTheme.colors.textSecondary,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8,
     marginBottom: 8,
   },
   inputTitle: {
-    backgroundColor: '#1f2937',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    color: '#f9fafb',
-    fontSize: 14,
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
+    borderRadius: CoffeeTheme.radii.md,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: CoffeeTheme.colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    color: CoffeeTheme.colors.textPrimary,
+    fontSize: 13,
+    marginBottom: 8,
+    outlineStyle: 'none' as any,
   },
   dispatchRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 10,
+    gap: 8,
   },
   inputXp: {
-    width: 80,
-    backgroundColor: '#1f2937',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#f9fafb',
-    fontSize: 14,
-    textAlign: 'center',
+    backgroundColor: CoffeeTheme.colors.surfaceSubtle,
+    borderRadius: CoffeeTheme.radii.md,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: CoffeeTheme.colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    color: CoffeeTheme.colors.textPrimary,
+    fontSize: 13,
+    width: 70,
+    textAlign: 'center',
+    outlineStyle: 'none' as any,
   },
   dispatchBtn: {
     flex: 1,
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-    alignItems: 'center',
+    backgroundColor: CoffeeTheme.colors.brand,
+    borderRadius: CoffeeTheme.radii.md,
     justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 9,
   },
   dispatchBtnDisabled: {
     opacity: 0.6,
   },
   dispatchBtnText: {
-    color: '#0f172a',
-    fontWeight: '800',
-    fontSize: 13,
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   listSection: {
     flex: 1,
@@ -439,7 +459,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   queueCount: {
-    color: '#38bdf8',
+    color: CoffeeTheme.colors.brandSecondary,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -449,51 +469,52 @@ const styles = StyleSheet.create({
   missionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
-    borderRadius: 12,
+    backgroundColor: CoffeeTheme.colors.surface,
+    borderRadius: CoffeeTheme.radii.md,
     padding: 12,
-    marginBottom: 10,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#1f2937',
+    borderColor: CoffeeTheme.colors.border,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#1e293b',
+    backgroundColor: CoffeeTheme.colors.accentAmberBg,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: CoffeeTheme.radii.sm,
     marginRight: 10,
   },
   statusBadgeCompleted: {
-    backgroundColor: '#064e3b',
+    backgroundColor: CoffeeTheme.colors.successGreenBg,
   },
   statusText: {
-    color: '#f59e0b',
+    color: CoffeeTheme.colors.accentAmber,
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   statusTextCompleted: {
-    color: '#10b981',
+    color: CoffeeTheme.colors.successGreen,
   },
   missionBody: {
     flex: 1,
   },
   missionTitle: {
-    color: '#f9fafb',
+    color: CoffeeTheme.colors.textPrimary,
     fontSize: 13,
     fontWeight: '600',
   },
   titleCompleted: {
     textDecorationLine: 'line-through',
-    color: '#64748b',
+    color: CoffeeTheme.colors.textMuted,
   },
   xpText: {
-    color: '#38bdf8',
+    color: CoffeeTheme.colors.brandSecondary,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   deleteButton: {
     padding: 6,
@@ -504,25 +525,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#64748b',
+    color: CoffeeTheme.colors.textSecondary,
     fontSize: 12,
     marginTop: 8,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 60,
+    paddingTop: 40,
   },
   emptyTitle: {
-    color: '#94a3af',
-    fontSize: 15,
+    color: CoffeeTheme.colors.textPrimary,
+    fontSize: 14,
     fontWeight: '700',
-    marginTop: 10,
+    marginTop: 8,
   },
   emptySubtitle: {
-    color: '#64748b',
+    color: CoffeeTheme.colors.textSecondary,
     fontSize: 12,
     marginTop: 4,
     textAlign: 'center',
+    maxWidth: 280,
   },
 });
